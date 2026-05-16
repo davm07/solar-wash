@@ -1,0 +1,16 @@
+{
+  "name": "solar-wash",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"pnpm --prefix api dev\" \"pnpm --prefix dashboard dev\""
+  },
+  "devDependencies": {
+    "concurrently": "9.2.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.30.3"
+}
