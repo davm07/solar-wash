@@ -1,15 +1,63 @@
-import { pgTable, uuid, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  name: varchar("name", { length: 255 }).notNull(),
-
   email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("technician"),
+});
 
-  password: text("password").notNull(),
+export const plants = pgTable("plants", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  location: varchar("location", { length: 255 }),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => users.id),
+  totalMesas: integer("total_mesas").notNull().default(0),
+});
 
-  role: varchar("role", { length: 50 }).notNull(),
+export const mesas = pgTable("mesas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  plantId: uuid("plant_id")
+    .notNull()
+    .references(() => plants.id),
+  code: varchar("code", { length: 100 }).notNull().unique(),
+  label: varchar("label", { length: 100 }).notNull(),
+  row: integer("row").notNull(),
+  col: integer("col").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+});
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+export const washSessions = pgTable("wash_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  plantId: uuid("plant_id")
+    .notNull()
+    .references(() => plants.id),
+  technicianId: uuid("technician_id")
+    .notNull()
+    .references(() => users.id),
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
+  notes: varchar("notes", { length: 500 }),
+});
+
+export const mesaWashes = pgTable("mesa_washes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => washSessions.id),
+  mesaId: uuid("mesa_id")
+    .notNull()
+    .references(() => mesas.id),
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
+  durationSeconds: integer("duration_seconds"),
 });
