@@ -23,7 +23,7 @@ router.post(
     console.log(req.user);
 
     if (!plantId) {
-      return res.status(400).json({ error: "plantId requerido" });
+      return res.status(400).json({ message: "plantId requerido" });
     }
 
     try {
@@ -38,7 +38,7 @@ router.post(
       res.json(session);
     } catch (error) {
       console.log(error);
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );
@@ -60,7 +60,7 @@ router.post(
 
       res.json(session);
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );
@@ -80,7 +80,7 @@ router.get(
         .where(eq(washSessions.id, sessionId as string));
 
       if (!session) {
-        return res.status(404).json({ error: "Sesión no encontrada" });
+        return res.status(404).json({ message: "Sesión no encontrada" });
       }
 
       // Mesas lavadas en esta sesión
@@ -113,7 +113,7 @@ router.get(
         duracionSegundos: duracionTotal,
       });
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );

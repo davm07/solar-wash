@@ -11,19 +11,19 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ error: "Email y contraseña requeridos" });
+    return res.status(400).json({ message: "Email y contraseña requeridos" });
   }
 
   try {
     const [user] = await db.select().from(users).where(eq(users.email, email));
 
     if (!user) {
-      return res.status(401).json({ error: "Usuario no encontrado" });
+      return res.status(401).json({ message: "Usuario no encontrado" });
     }
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
-      return res.status(401).json({ error: "Contraseña incorrecta" });
+      return res.status(401).json({ message: "Contraseña incorrecta" });
     }
 
     const token = jwt.sign(
@@ -42,8 +42,7 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 

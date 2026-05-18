@@ -25,7 +25,7 @@ router.get(
 
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );
@@ -42,7 +42,7 @@ router.post(
       const [mesa] = await db.select().from(mesas).where(eq(mesas.code, code));
 
       if (!mesa) {
-        return res.status(404).json({ error: "Mesa no encontrada" });
+        return res.status(404).json({ message: "Mesa no encontrada" });
       }
 
       // Crear registro de lavado
@@ -63,7 +63,7 @@ router.post(
 
       res.json({ mesaWash, mesa: mesaActualizada });
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );
@@ -80,7 +80,7 @@ router.post(
       const [mesa] = await db.select().from(mesas).where(eq(mesas.code, code));
 
       if (!mesa) {
-        return res.status(404).json({ error: "Mesa no encontrada" });
+        return res.status(404).json({ message: "Mesa no encontrada" });
       }
 
       // Buscar el lavado activo de esta mesa
@@ -110,7 +110,7 @@ router.post(
 
       res.json({ durationSeconds, mesa: mesaActualizada });
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );

@@ -20,7 +20,7 @@ router.get(
       const result = await db.select().from(plants);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 );
@@ -34,7 +34,7 @@ router.get("/my-plants", requireAuth, async (req: AuthRequest, res) => {
       .where(eq(plants.clientId, req.user!.id));
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
