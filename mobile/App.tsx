@@ -1,13 +1,35 @@
 import { useState } from "react";
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
+import PlantSelectScreen from "./src/screens/PlantSelectScreen";
+
+interface Plant {
+  id: string;
+  name: string;
+  location: string;
+  totalMesas: number;
+}
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
 
   if (!loggedIn) {
     return <LoginScreen onLogin={() => setLoggedIn(true)} />;
   }
 
-  return <HomeScreen onLogout={() => setLoggedIn(false)} />;
+  if (!selectedPlant) {
+    return (
+      <PlantSelectScreen onSelectPlant={(plant) => setSelectedPlant(plant)} />
+    );
+  }
+
+  return (
+    <HomeScreen
+      onLogout={() => {
+        setLoggedIn(false);
+        setSelectedPlant(null);
+      }}
+    />
+  );
 }
