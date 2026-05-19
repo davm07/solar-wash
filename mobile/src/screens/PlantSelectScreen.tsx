@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import api from "../utils/api";
+import { useAppStore } from "../store/useAppStore";
 
 interface Plant {
   id: string;
@@ -17,13 +18,11 @@ interface Plant {
   totalMesas: number;
 }
 
-export default function PlantSelectScreen({
-  onSelectPlant,
-}: {
-  onSelectPlant: (plant: Plant) => void;
-}) {
+export default function PlantSelectScreen({ navigation }: any) {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const setPlant = useAppStore((s) => s.setPlant);
 
   useEffect(() => {
     fetchPlants();
@@ -36,11 +35,18 @@ export default function PlantSelectScreen({
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error.message || "No se pudieron cargar las plantas",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudieron cargar las plantas",
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectPlant = (plant: Plant) => {
+    setPlant(plant);
+    navigation.navigate("Session");
   };
 
   if (loading) {
@@ -58,7 +64,10 @@ export default function PlantSelectScreen({
         data={plants}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={s.card} onPress={() => onSelectPlant(item)}>
+          <TouchableOpacity
+            style={s.card}
+            onPress={() => handleSelectPlant(item)}
+          >
             <Text style={s.plantName}>{item.name}</Text>
             <Text style={s.plantInfo}>{item.location}</Text>
             <Text style={s.plantInfo}>{item.totalMesas} mesas</Text>

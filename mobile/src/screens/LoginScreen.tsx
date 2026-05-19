@@ -11,11 +11,16 @@ import {
 import * as SecureStore from "expo-secure-store";
 import api from "../utils/api";
 import StartIcon from "../components/StartIcon";
+import { useAppStore } from "../store/useAppStore";
 
-export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
+export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 🧠 ZUSTAND ACTIONS
+  const setUser = useAppStore((s) => s.setUser);
+  const setToken = useAppStore((s) => s.setToken);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -24,13 +29,27 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
     }
 
     setLoading(true);
+
     try {
-      const { data } = await api.post("/auth/login", { email, password });
+      const { data } = await api.post("/auth/login", {
+        email,
+        password,
+      });
+
+      // 🧠 1. ESTADO GLOBAL (ZUSTAND)
+      setUser(data.user);
+      setToken(data.token);
+
+      // 🔵 2. PERSISTENCIA (SECURE STORE)
       await SecureStore.setItemAsync("token", data.token);
       await SecureStore.setItemAsync("user", JSON.stringify(data.user));
-      onLogin();
+
+      // 🚀 3. NAVEGACIÓN
+      navigation.navigate("PlantSelect");
     } catch (error: any) {
-      const message = error.message || "Error de conexión";
+      const message =
+        error?.response?.data?.message || error.message || "Error de conexión";
+
       Alert.alert("Error", message);
     } finally {
       setLoading(false);
@@ -40,6 +59,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
   return (
     <View style={s.container}>
       <StartIcon width={200} height={100} />
+
       <Text style={s.title}>Solar Wash</Text>
       <Text style={s.subtitle}>Inicia sesión para continuar</Text>
 
@@ -51,6 +71,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
         autoCapitalize="none"
         keyboardType="email-address"
       />
+
       <TextInput
         style={s.input}
         placeholder="Contraseña"

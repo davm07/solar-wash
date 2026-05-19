@@ -11,7 +11,7 @@ const PlantComponent = (props: SvgProps) => (
     <G
       fill="none"
       stroke="#000000"
-      strokeWidth="0.07"
+      strokeWidth="0.09"
       id="mesas"
       transform="translate(0.00785647,0.00542583)"
     >

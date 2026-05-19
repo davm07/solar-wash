@@ -1,36 +1,30 @@
-import { useState } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import LoginScreen from "./src/screens/LoginScreen";
-import HomeScreen from "./src/screens/HomeScreen";
 import PlantSelectScreen from "./src/screens/PlantSelectScreen";
-import PlantComponent from "./src/components/PlantDemoSVG";
-import { ZoomableSVG } from "./src/components/ZoomableSVG";
 import SessionScreen from "./src/screens/SessionScreen";
 
-interface Plant {
-  id: string;
-  name: string;
-  location: string;
-  totalMesas: number;
-}
+export type RootStackParamList = {
+  Login: undefined;
+  PlantSelect: undefined;
+  Home: undefined;
+  Session: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  // const [loggedIn, setLoggedIn] = useState(false);
-  // const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
-  // if (!loggedIn) {
-  //   return <LoginScreen onLogin={() => setLoggedIn(true)} />;
-  // }
-  // if (!selectedPlant) {
-  //   return (
-  //     <PlantSelectScreen onSelectPlant={(plant) => setSelectedPlant(plant)} />
-  //   );
-  // }
-  // return (
-  //   <HomeScreen
-  //     onLogout={() => {
-  //       setLoggedIn(false);
-  //       setSelectedPlant(null);
-  //     }}
-  //   />
-  // );
-  return <SessionScreen />;
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="Login"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="PlantSelect" component={PlantSelectScreen} />
+        <Stack.Screen name="Session" component={SessionScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }

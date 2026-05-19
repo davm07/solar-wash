@@ -1,42 +1,131 @@
-import { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useState } from "react";
 import { ZoomableSVG } from "../components/ZoomableSVG";
-import PlantaSVG from "../components/PlantDemoSVG"; // cambia por el nombre de tu componente
+import PlantaSVG from "../components/PlantDemoSVG";
+import { useAppStore } from "../store/useAppStore";
+import api from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
-type SessionState = "idle" | "active" | "scanning";
+type Mode = "view" | "scanning";
 
-export default function SessionScreen() {
-  const [sessionState, setSessionState] = useState<SessionState>("idle");
+export default function SessionScreen({ navigation }: any) {
+  const [mode, setMode] = useState<Mode>("view");
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanning, setScanning] = useState(false);
+
+  // 🧠 ZUSTAND STATE
+  const plant = useAppStore((s) => s.plant);
+  const session = useAppStore((s) => s.session);
+  const currentMesaId = useAppStore((s) => s.currentMesaId);
+
+  const setSession = useAppStore((s) => s.setSession);
+  const endSession = useAppStore((s) => s.endSession);
+  const setCurrentMesa = useAppStore((s) => s.setCurrentMesa);
+
+  const isActive = !!session?.id;
+
+  // =========================
+  // START SESSION (REAL API)
+  // =========================
+  const startSession = async () => {
+    try {
+      const { data } = await api.post("/sessions/start", {
+        plantId: plant?.id ?? "",
+      });
+      setSession(data);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo iniciar la sesión",
+      );
+    }
+  };
+
+  // =========================
+  // END SESSION (REAL API)
+  // =========================
+  const finishSession = async () => {
+    if (!session?.id) return; // seguridad extra, aunque el botón solo aparece si hay sesión
+
+    try {
+      await api.post(`/sessions/${session.id}/finish`);
+
+      endSession();
+      setCurrentMesa(null);
+
+      setMode("view");
+      Alert.alert("Sesión finalizada", "¡La jornada ha terminado!");
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo finalizar la sesión",
+      );
+    }
+  };
+
+  const handleScan = async ({ data }: { data: string }) => {
+    if (scanning) return; // evitar múltiples escaneos
+    setScanning(true);
+
+    try {
+      const res = await api.post("/mesas/scan/start", {
+        code: data,
+        sessionId: session?.id ?? "",
+      });
+
+      console.log(res.data.mesa.code);
+
+      setCurrentMesa(res.data.mesa.code);
+      setMode("view");
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo escanear el código",
+      );
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const PADDING_HORIZONTAL = 16 * 2;
   const svgBaseWidth = width - PADDING_HORIZONTAL;
   const svgBaseHeight = svgBaseWidth * (147.16888 / 367.04461);
 
-  // Datos estáticos de demo
-  const mesaActual = "Mesa 05";
-  const tiempo = "00:12:34";
-  const mesasLavadas = 4;
-  const totalMesas = 36;
-  const porcentaje = Math.round((mesasLavadas / totalMesas) * 100);
+  // 🧠 DATA REAL
+  const mesaActual = currentMesaId ?? "—";
+  const tiempo = "00:12:34"; // luego lo conectas
+  const mesasLavadas = 4; // luego backend
+  const totalMesas = plant?.totalMesas ?? 0;
+  const porcentaje = totalMesas
+    ? Math.round((mesasLavadas / totalMesas) * 100)
+    : 0;
 
-  if (sessionState === "scanning") {
+  // =========================
+  // SCAN SCREEN
+  // =========================
+  if (mode === "scanning") {
     if (!permission?.granted) {
       return (
         <SafeAreaView style={s.centered}>
-          <Text style={s.permissionText}>Se necesita permiso de cámara</Text>
-          <TouchableOpacity style={s.btn} onPress={requestPermission}>
-            <Text style={s.btnText}>Dar permiso</Text>
+          <Text>Se necesita permiso de cámara</Text>
+          <TouchableOpacity onPress={requestPermission}>
+            <Text>Dar permiso</Text>
           </TouchableOpacity>
         </SafeAreaView>
       );
@@ -48,12 +137,18 @@ export default function SessionScreen() {
           style={{ flex: 1 }}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onBarcodeScanned={handleScan}
         />
+
         <View style={s.scanOverlay}>
-          <Text style={s.scanText}>Apunta al código QR de la mesa</Text>
+          <Text style={s.scanText}>Escanea QR de la mesa</Text>
+
           <TouchableOpacity
-            style={s.cancelBtn}
-            onPress={() => setSessionState("active")}
+            style={s.btn}
+            onPress={() => {
+              setMode("view");
+              setScanning(false);
+            }}
           >
             <Text style={s.btnText}>Cancelar</Text>
           </TouchableOpacity>
@@ -62,58 +157,69 @@ export default function SessionScreen() {
     );
   }
 
+  // =========================
+  // MAIN VIEW
+  // =========================
   return (
     <SafeAreaView style={s.container}>
-      {/* SVG ocupa la mayor parte */}
       <View style={s.svgContainer}>
         <ZoomableSVG baseWidth={svgBaseWidth} baseHeight={svgBaseHeight}>
           <PlantaSVG />
         </ZoomableSVG>
       </View>
 
-      {/* Panel inferior */}
       <View style={s.panel}>
-        {/* Stats */}
+        {/* STATS */}
         <View style={s.statsRow}>
           <View style={s.statBox}>
-            <Text style={s.statLabel}>Tiempo</Text>
-            <Text style={s.statValue}>{tiempo}</Text>
+            <Text style={s.statLabel}>Planta</Text>
+            <Text style={s.statValue}>{plant?.name ?? "—"}</Text>
           </View>
+
           <View style={s.statBox}>
             <Text style={s.statLabel}>Mesa actual</Text>
-            <Text style={s.statValue}>
-              {sessionState === "active" ? mesaActual : "—"}
-            </Text>
+            <Text style={s.statValue}>{mesaActual}</Text>
           </View>
+
           <View style={s.statBox}>
             <Text style={s.statLabel}>Progreso</Text>
             <Text style={s.statValue}>
-              {mesasLavadas}/{totalMesas} · {porcentaje}%
+              {isActive ? "Activo" : "Inactivo"} - {porcentaje}% ({mesasLavadas}
+              /{totalMesas})
             </Text>
           </View>
         </View>
 
-        {/* Botones */}
-        {sessionState === "idle" && (
+        {/* BOTONES */}
+        {!isActive && (
           <TouchableOpacity
-            style={s.btn}
-            onPress={() => setSessionState("active")}
+            style={{
+              backgroundColor: "#1D9E75",
+              padding: 14,
+              borderRadius: 10,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onPress={startSession}
           >
-            <Text style={s.btnText}>▶ Iniciar jornada</Text>
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "bold" }}>
+              Iniciar jornada
+            </Text>
           </TouchableOpacity>
         )}
 
-        {sessionState === "active" && (
+        {isActive && (
           <View style={s.btnRow}>
             <TouchableOpacity
               style={[s.btn, s.scanBtn]}
-              onPress={() => setSessionState("scanning")}
+              onPress={() => setMode("scanning")}
             >
               <Text style={s.btnText}>📷 Escanear QR</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[s.btn, s.finishBtn]}
-              onPress={() => setSessionState("idle")}
+              onPress={finishSession}
             >
               <Text style={s.btnText}>⏹ Finalizar</Text>
             </TouchableOpacity>
