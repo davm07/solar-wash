@@ -78,25 +78,44 @@ export default function SessionScreen({ navigation }: any) {
   };
 
   const handleScan = async ({ data }: { data: string }) => {
-    if (scanning) return; // evitar múltiples escaneos
+    if (scanning) return;
     setScanning(true);
 
     try {
-      const res = await api.post("/mesas/scan/start", {
-        code: data,
-        sessionId: session?.id ?? "",
-      });
+      // 1. preguntar estado real de la mesa
+      const mesaRes = await api.get(`/mesas/${plant?.id}`);
+      const mesa = mesaRes.data.find((m: any) => m.code === data);
 
-      console.log(res.data.mesa.code);
+      if (!mesa) {
+        Alert.alert("Error", "Mesa no encontrada");
+        return;
+      }
 
-      setCurrentMesa(res.data.mesa.code);
+      // 2. decidir acción según estado
+      if (mesa.status === "pending") {
+        const res = await api.post("/mesas/scan/start", {
+          code: data,
+          sessionId: session?.id,
+        });
+
+        setCurrentMesa(res.data.mesa.code);
+      }
+
+      if (mesa.status === "in_progress") {
+        const res = await api.post("/mesas/scan/finish", {
+          code: data,
+        });
+
+        setCurrentMesa(null);
+      }
+
       setMode("view");
     } catch (error: any) {
       Alert.alert(
         "Error",
         error?.response?.data?.message ||
           error.message ||
-          "No se pudo escanear el código",
+          "No se pudo procesar el QR",
       );
     } finally {
       setScanning(false);
@@ -214,14 +233,16 @@ export default function SessionScreen({ navigation }: any) {
               style={[s.btn, s.scanBtn]}
               onPress={() => setMode("scanning")}
             >
-              <Text style={s.btnText}>📷 Escanear QR</Text>
+              <Text style={s.btnText}>
+                📷 {currentMesaId ? "Finalizar mesa" : "Escanear mesa"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[s.btn, s.finishBtn]}
               onPress={finishSession}
             >
-              <Text style={s.btnText}>⏹ Finalizar</Text>
+              <Text style={s.btnText}>⏹ Finalizar sesión</Text>
             </TouchableOpacity>
           </View>
         )}
