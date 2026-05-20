@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import api from "../utils/api";
 import { useAppStore } from "../store/useAppStore";
+import { logout } from "../utils/auth";
 
 interface Plant {
   id: string;
@@ -74,6 +75,26 @@ export default function PlantSelectScreen({ navigation }: any) {
           </TouchableOpacity>
         )}
       />
+
+      <TouchableOpacity
+        style={{
+          marginTop: 10,
+          padding: 12,
+          backgroundColor: "#e74c3c",
+          borderRadius: 10,
+          alignItems: "center",
+        }}
+        onPress={async () => {
+          await logout();
+
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          });
+        }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "bold" }}>Cerrar sesión</Text>
+      </TouchableOpacity>
     </View>
   );
 }

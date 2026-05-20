@@ -127,6 +127,7 @@ export const useAppStore = create<AppState>((set) => ({
     set({
       session: null,
       currentMesaId: null,
+      mesas: [],
     }),
 
   // =========================
@@ -150,5 +151,6 @@ export const useAppStore = create<AppState>((set) => ({
       plant: null,
       session: null,
       currentMesaId: null,
+      mesas: [],
     }),
 }));

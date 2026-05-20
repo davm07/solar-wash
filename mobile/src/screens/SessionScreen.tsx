@@ -99,12 +99,16 @@ export default function SessionScreen({ navigation }: any) {
 
     try {
       await api.post(`/sessions/${session.id}/finish`);
+      const sessionId = session.id;
 
       endSession();
       setCurrentMesa(null);
 
       setMode("view");
       Alert.alert("Sesión finalizada", "¡La jornada ha terminado!");
+      navigation.replace("SessionSummary", {
+        sessionId,
+      });
     } catch (error: any) {
       Alert.alert(
         "Error",
