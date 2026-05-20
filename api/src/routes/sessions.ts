@@ -19,8 +19,6 @@ router.post(
   requireTechnician,
   async (req: AuthRequest, res) => {
     const { plantId } = req.body;
-    console.log(plantId);
-    console.log(req.user);
 
     if (!plantId) {
       return res.status(400).json({ message: "plantId requerido" });
@@ -52,6 +50,21 @@ router.post(
     const { sessionId } = req.params;
 
     try {
+      const mesasEnProgreso = await db
+        .select()
+        .from(mesaWashes)
+        .where(eq(mesaWashes.sessionId, sessionId as string));
+
+      const hayMesasEnProgreso = mesasEnProgreso.some((m) => !m.finishedAt);
+
+      if (hayMesasEnProgreso) {
+        return res
+          .status(400)
+          .json({
+            message: "No se puede finalizar una sesión con mesas en progreso",
+          });
+      }
+
       const [session] = await db
         .update(washSessions)
         .set({ finishedAt: new Date() })
