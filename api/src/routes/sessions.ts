@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/index";
-import { washSessions, mesas, mesaWashes } from "../db/schema";
+import { washSessions, mesas, mesaWashes, plants, users } from "../db/schema";
 import { eq, count } from "drizzle-orm";
 import {
   requireAuth,
@@ -58,11 +58,9 @@ router.post(
       const hayMesasEnProgreso = mesasEnProgreso.some((m) => !m.finishedAt);
 
       if (hayMesasEnProgreso) {
-        return res
-          .status(400)
-          .json({
-            message: "No se puede finalizar una sesión con mesas en progreso",
-          });
+        return res.status(400).json({
+          message: "No se puede finalizar una sesión con mesas en progreso",
+        });
       }
 
       const [session] = await db
@@ -87,12 +85,25 @@ router.get(
     const { sessionId } = req.params;
 
     try {
-      const [session] = await db
-        .select()
+      const [result] = await db
+        .select({
+          session: washSessions,
+          plant: {
+            id: plants.id,
+            name: plants.name,
+            location: plants.location,
+          },
+          technician: {
+            id: users.id,
+            name: users.name,
+          },
+        })
         .from(washSessions)
+        .innerJoin(plants, eq(washSessions.plantId, plants.id))
+        .innerJoin(users, eq(washSessions.technicianId, users.id))
         .where(eq(washSessions.id, sessionId as string));
 
-      if (!session) {
+      if (!result) {
         return res.status(404).json({ message: "Sesión no encontrada" });
       }
 
@@ -106,24 +117,28 @@ router.get(
       const [{ total }] = await db
         .select({ total: count() })
         .from(mesas)
-        .where(eq(mesas.plantId, session.plantId));
+        .where(eq(mesas.plantId, result.session.plantId));
 
-      const duracionTotal = session.finishedAt
+      const duracionTotal = result.session.finishedAt
         ? Math.floor(
-            (new Date(session.finishedAt).getTime() -
-              new Date(session.startedAt!).getTime()) /
+            (new Date(result.session.finishedAt).getTime() -
+              new Date(result.session.startedAt!).getTime()) /
               1000,
           )
         : Math.floor(
-            (Date.now() - new Date(session.startedAt!).getTime()) / 1000,
+            (Date.now() - new Date(result.session.startedAt!).getTime()) / 1000,
           );
 
       res.json({
-        session,
+        session: {
+          ...result.session,
+          plant: result.plant,
+          technician: result.technician,
+        },
         mesasLavadas: mesasLavadas.length,
         totalMesas: total,
         porcentaje: Math.round((mesasLavadas.length / total) * 100),
-        duracionSegundos: duracionTotal,
+        duracionTotal: duracionTotal as number,
       });
     } catch (error) {
       res.status(500).json({ message: "Error interno del servidor" });
