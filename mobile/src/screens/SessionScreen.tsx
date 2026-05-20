@@ -8,11 +8,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ZoomableSVG } from "../components/ZoomableSVG";
 import PlantaSVG from "../components/PlantDemoSVG";
 import { useAppStore } from "../store/useAppStore";
 import api from "../utils/api";
+import { MesaStatus } from "../components/PlantDemoSVG";
 
 const { width } = Dimensions.get("window");
 
@@ -27,12 +28,40 @@ export default function SessionScreen({ navigation }: any) {
   const plant = useAppStore((s) => s.plant);
   const session = useAppStore((s) => s.session);
   const currentMesaId = useAppStore((s) => s.currentMesaId);
+  const mesas = useAppStore((s) => s.mesas);
 
   const setSession = useAppStore((s) => s.setSession);
   const endSession = useAppStore((s) => s.endSession);
+  const setMesas = useAppStore((s) => s.setMesas);
+  const updateMesa = useAppStore((s) => s.updateMesa);
   const setCurrentMesa = useAppStore((s) => s.setCurrentMesa);
 
   const isActive = !!session?.id;
+  const hasMesaInProgress = !!currentMesaId;
+  const currentMesa = mesas.find((m) => m.code === currentMesaId);
+  const mesaStatus = () => {
+    if (currentMesa?.status === "pending") return "Pendiente";
+    if (currentMesa?.status === "in_progress") return "En progreso";
+    if (currentMesa?.status === "done") return "Finalizada";
+  };
+
+  useEffect(() => {
+    fetchMesas();
+  }, []);
+
+  const fetchMesas = async () => {
+    try {
+      const { data } = await api.get(`/mesas/${plant?.id}`);
+      setMesas(data);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudieron cargar las mesas",
+      );
+    }
+  };
 
   // =========================
   // START SESSION (REAL API)
@@ -59,6 +88,15 @@ export default function SessionScreen({ navigation }: any) {
   const finishSession = async () => {
     if (!session?.id) return; // seguridad extra, aunque el botón solo aparece si hay sesión
 
+    // 🚨 VALIDACIÓN
+    if (currentMesaId) {
+      Alert.alert(
+        "Mesa en progreso",
+        "Finaliza la mesa actual antes de terminar la jornada",
+      );
+      return;
+    }
+
     try {
       await api.post(`/sessions/${session.id}/finish`);
 
@@ -82,9 +120,7 @@ export default function SessionScreen({ navigation }: any) {
     setScanning(true);
 
     try {
-      // 1. preguntar estado real de la mesa
-      const mesaRes = await api.get(`/mesas/${plant?.id}`);
-      const mesa = mesaRes.data.find((m: any) => m.code === data);
+      const mesa = mesas.find((m) => m.code === data);
 
       if (!mesa) {
         Alert.alert("Error", "Mesa no encontrada");
@@ -99,6 +135,7 @@ export default function SessionScreen({ navigation }: any) {
         });
 
         setCurrentMesa(res.data.mesa.code);
+        updateMesa(res.data.mesa);
       }
 
       if (mesa.status === "in_progress") {
@@ -106,6 +143,7 @@ export default function SessionScreen({ navigation }: any) {
           code: data,
         });
 
+        updateMesa(res.data.mesa);
         setCurrentMesa(null);
       }
 
@@ -128,12 +166,18 @@ export default function SessionScreen({ navigation }: any) {
 
   // 🧠 DATA REAL
   const mesaActual = currentMesaId ?? "—";
-  const tiempo = "00:12:34"; // luego lo conectas
-  const mesasLavadas = 4; // luego backend
+  const mesasLavadas = mesas.filter((m) => m.status === "done").length;
   const totalMesas = plant?.totalMesas ?? 0;
   const porcentaje = totalMesas
     ? Math.round((mesasLavadas / totalMesas) * 100)
     : 0;
+  const mesasState = mesas.reduce(
+    (acc, m) => {
+      acc[m.code] = m.status;
+      return acc;
+    },
+    {} as Record<string, MesaStatus>,
+  );
 
   // =========================
   // SCAN SCREEN
@@ -183,7 +227,7 @@ export default function SessionScreen({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <View style={s.svgContainer}>
         <ZoomableSVG baseWidth={svgBaseWidth} baseHeight={svgBaseHeight}>
-          <PlantaSVG />
+          <PlantaSVG mesasState={mesasState} />
         </ZoomableSVG>
       </View>
 
@@ -197,7 +241,11 @@ export default function SessionScreen({ navigation }: any) {
 
           <View style={s.statBox}>
             <Text style={s.statLabel}>Mesa actual</Text>
-            <Text style={s.statValue}>{mesaActual}</Text>
+            <Text style={s.statValue}>
+              {currentMesaId
+                ? `${currentMesa?.label} (${mesaStatus()})`
+                : "Escanea una mesa"}
+            </Text>
           </View>
 
           <View style={s.statBox}>
@@ -239,8 +287,15 @@ export default function SessionScreen({ navigation }: any) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[s.btn, s.finishBtn]}
+              style={[
+                s.btn,
+                s.finishBtn,
+                hasMesaInProgress && {
+                  opacity: 0.6,
+                },
+              ]}
               onPress={finishSession}
+              disabled={hasMesaInProgress}
             >
               <Text style={s.btnText}>⏹ Finalizar sesión</Text>
             </TouchableOpacity>

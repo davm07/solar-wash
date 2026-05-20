@@ -29,6 +29,14 @@ interface Session {
   status: "idle" | "active" | "finished";
 }
 
+interface Mesa {
+  id: string;
+  plantId: string;
+  code: string;
+  label: string;
+  status: "pending" | "in_progress" | "done";
+}
+
 /**
  * =========================
  * ESTADO GLOBAL
@@ -70,6 +78,9 @@ interface AppState {
   // ACTIONS - MESAS (QR FLOW)
   // =========================
   setCurrentMesa: (id: string | null) => void;
+  mesas: Mesa[];
+  setMesas: (mesas: Mesa[]) => void;
+  updateMesa: (mesa: Mesa) => void;
 
   // =========================
   // RESET TOTAL
@@ -122,6 +133,12 @@ export const useAppStore = create<AppState>((set) => ({
   // QR / MESA FLOW
   // =========================
   setCurrentMesa: (id) => set({ currentMesaId: id }),
+  mesas: [],
+  setMesas: (mesas) => set({ mesas }),
+  updateMesa: (mesa) =>
+    set((state) => ({
+      mesas: state.mesas.map((m) => (m.id === mesa.id ? mesa : m)),
+    })),
 
   // =========================
   // LOGOUT / RESET
