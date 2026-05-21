@@ -76,6 +76,30 @@ router.post(
   },
 );
 
+router.get(
+  "/:plantId",
+  requireAuth,
+  requireSessionAccess,
+  async (req: AuthRequest, res) => {
+    const { plantId } = req.params;
+
+    try {
+      const sessions = await db
+        .select()
+        .from(washSessions)
+        .where(eq(washSessions.plantId, plantId as string));
+
+      if (!sessions) {
+        return res.status(404).json({ message: "Sesión no encontrada" });
+      }
+
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
 // Obtener resumen de una sesión
 router.get(
   "/:sessionId/summary",
