@@ -78,6 +78,10 @@ export default function PlantCard({ plant }: { plant: Plant }) {
             <p className="text-sm text-red-500">Error al cargar las sesiones</p>
           )}
 
+          {sessions?.length === 0 && (
+            <p className="text-sm text-gray-500">No hay sesiones</p>
+          )}
+
           {Array.isArray(sessions) &&
             sessions.map((session) => (
               <div
