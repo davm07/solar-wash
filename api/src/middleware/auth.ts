@@ -80,10 +80,22 @@ export async function requireSessionAccess(
   }
 
   try {
-    const [session] = await db
-      .select()
-      .from(washSessions)
-      .where(eq(washSessions.id, req.params.sessionId as string));
+    let session: typeof washSessions.$inferSelect | undefined;
+    if (req.params.plantId) {
+      const [foundSession] = await db
+        .select()
+        .from(washSessions)
+        .where(eq(washSessions.plantId, req.params.plantId as string));
+      session = foundSession;
+    }
+    if (req.params.sessionId) {
+      const [foundSession] = await db
+        .select()
+        .from(washSessions)
+        .where(eq(washSessions.id, req.params.sessionId as string));
+
+      session = foundSession;
+    }
 
     if (!session) {
       return res.status(404).json({ error: "Sesión no encontrada" });

@@ -13,6 +13,6 @@ export const fetchPlants = async (): Promise<Plant[]> => {
 };
 
 export const fetchMyPlants = async (): Promise<Plant[]> => {
-  const { data } = await api.get("/my-plants");
+  const { data } = await api.get("/plants/my-plants");
   return data;
 };
