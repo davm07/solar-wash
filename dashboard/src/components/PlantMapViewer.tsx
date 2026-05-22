@@ -2,7 +2,11 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 import PlantDemo from "./PlantDemo";
 
-export default function PlantMapViewer() {
+interface PlantMapViewerProps {
+  mesaStatuses: Record<string, string>;
+}
+
+export default function PlantMapViewer(props: PlantMapViewerProps) {
   return (
     <div className="w-full h-full bg-white rounded-xl border border-olive-100 shadow-md overflow-hidden relative p-4">
       <TransformWrapper
@@ -41,7 +45,10 @@ export default function PlantMapViewer() {
               wrapperClass="!w-full !h-full"
               contentClass="!w-full !h-full"
             >
-              <PlantDemo className="w-full h-full" />
+              <PlantDemo
+                className="w-full h-full"
+                mesaStatuses={props.mesaStatuses}
+              />
             </TransformComponent>
           </>
         )}

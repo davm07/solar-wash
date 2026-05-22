@@ -10,7 +10,6 @@ export default function SessionSummaryPage() {
   const id = sessionId as string;
 
   const { data, isLoading, isError } = useSessionSummary(id);
-  console.log(data);
 
   if (isLoading) {
     return <p>Cargando el resumen de la sesión...</p>;
@@ -39,7 +38,9 @@ export default function SessionSummaryPage() {
     return `${dayStart}/${monthStart + 1}/${yearStart} - ${dayEnd}/${monthEnd + 1}/${yearEnd}`;
   };
 
-  console.log(data.mesasPlanta);
+  const mesaStatuses = Object.fromEntries(
+    data.mesasPlanta.map((m) => [m.code, m.status]),
+  );
 
   return (
     <div className="flex flex-col lg:flex-row">
@@ -121,7 +122,7 @@ export default function SessionSummaryPage() {
         </div>
       </div>
       <div className="flex-1 px-12 flex items-center justify-center">
-        <PlantMapViewer />
+        <PlantMapViewer mesaStatuses={mesaStatuses} />
       </div>
     </div>
   );

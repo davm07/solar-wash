@@ -158,7 +158,6 @@ router.get(
             (Date.now() - new Date(result.session.startedAt!).getTime()) / 1000,
           );
 
-      console.log(mesasPlanta);
       res.json({
         session: {
           ...result.session,
