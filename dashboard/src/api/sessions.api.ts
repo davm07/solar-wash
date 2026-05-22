@@ -14,6 +14,11 @@ export interface SessionSummary {
   totalMesas: number;
   porcentaje: number;
   duracionTotal: number;
+  mesasPlanta: {
+    code: string;
+    label: string;
+    status: string;
+  }[];
   session: {
     id: number;
     finishedAt: string;

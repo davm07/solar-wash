@@ -131,6 +131,11 @@ router.get(
         return res.status(404).json({ message: "Sesión no encontrada" });
       }
 
+      const mesasPlanta = await db
+        .select({ code: mesas.code, label: mesas.label, status: mesas.status })
+        .from(mesas)
+        .where(eq(mesas.plantId, result.session.plantId));
+
       // Mesas lavadas en esta sesión
       const mesasLavadas = await db
         .select()
@@ -153,6 +158,7 @@ router.get(
             (Date.now() - new Date(result.session.startedAt!).getTime()) / 1000,
           );
 
+      console.log(mesasPlanta);
       res.json({
         session: {
           ...result.session,
@@ -163,6 +169,7 @@ router.get(
         totalMesas: total,
         porcentaje: Math.round((mesasLavadas.length / total) * 100),
         duracionTotal: duracionTotal as number,
+        mesasPlanta,
       });
     } catch (error) {
       res.status(500).json({ message: "Error interno del servidor" });

@@ -15,7 +15,7 @@ export default function DashboardLayout() {
   return (
     <div className="h-screen flex flex-col">
       {/* TOP BAR */}
-      <header className="h-16 bg-olive-300 text-gray-900 flex items-center justify-between px-4 m-3 rounded-lg">
+      <header className="h-16 bg-olive-300 text-gray-900 flex items-center justify-between px-4 m-3 rounded-lg shadow-sm">
         <div className="flex items-center gap-4 ">
           <VioIcon className="h-fit" />
           <h1 className="font-bold w-full">Solar Wash Dashboard</h1>
