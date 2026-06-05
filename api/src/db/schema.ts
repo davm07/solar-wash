@@ -22,6 +22,7 @@ export const plants = pgTable("plants", {
     .notNull()
     .references(() => users.id),
   totalMesas: integer("total_mesas").notNull().default(0),
+  svgPath: varchar("svg_path", { length: 1000 }),
 });
 
 export const mesas = pgTable("mesas", {

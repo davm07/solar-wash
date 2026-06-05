@@ -116,6 +116,7 @@ router.get(
             id: plants.id,
             name: plants.name,
             location: plants.location,
+            svgPath: plants.svgPath,
           },
           technician: {
             id: users.id,
