@@ -1,18 +1,22 @@
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
-import PlantDemo from "./PlantDemo";
+import PlantMap from "./PlantMap";
 
 interface PlantMapViewerProps {
   mesaStatuses: Record<string, string>;
+  svg: string;
 }
 
-export default function PlantMapViewer(props: PlantMapViewerProps) {
+export default function PlantMapViewer({
+  mesaStatuses,
+  svg,
+}: PlantMapViewerProps) {
   return (
     <div className="w-full h-full bg-white rounded-xl border border-olive-100 shadow-md overflow-hidden relative p-4">
       <TransformWrapper
         initialScale={1}
         minScale={0.5}
-        maxScale={8}
+        maxScale={10}
         centerOnInit
         smooth
       >
@@ -45,10 +49,7 @@ export default function PlantMapViewer(props: PlantMapViewerProps) {
               wrapperClass="!w-full !h-full"
               contentClass="!w-full !h-full"
             >
-              <PlantDemo
-                className="w-full h-full"
-                mesaStatuses={props.mesaStatuses}
-              />
+              <PlantMap mesaStatuses={mesaStatuses} svg={svg} />
             </TransformComponent>
           </>
         )}

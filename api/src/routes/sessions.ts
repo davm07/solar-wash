@@ -8,6 +8,7 @@ import {
   requireTechnician,
   requireSessionAccess,
 } from "../middleware/auth";
+import { supabase } from "../lib/supabase";
 
 const router = Router();
 
@@ -159,10 +160,25 @@ router.get(
             (Date.now() - new Date(result.session.startedAt!).getTime()) / 1000,
           );
 
+      const { data, error } = await supabase.storage
+        .from("plantas")
+        .download(result.plant.svgPath!);
+
+      if (error) {
+        console.error("Error descargando el SVG:", error);
+      }
+
+      const svgContent = data ? await data.text() : null;
+
+      const plantWithSvg = {
+        ...result.plant,
+        svgContent,
+      };
+
       res.json({
         session: {
           ...result.session,
-          plant: result.plant,
+          plant: plantWithSvg,
           technician: result.technician,
         },
         mesasLavadas: mesasLavadas.length,

@@ -10,6 +10,7 @@ export default function SessionSummaryPage() {
   const id = sessionId as string;
 
   const { data, isLoading, isError } = useSessionSummary(id);
+  console.log("Session summary data:", data);
 
   if (isLoading) {
     return <p>Cargando el resumen de la sesión...</p>;
@@ -44,7 +45,7 @@ export default function SessionSummaryPage() {
 
   return (
     <div className="flex flex-col lg:flex-row">
-      <div className="max-w-4xl mx-auto mb-3">
+      <div className="max-w-4xl mx-auto mb-3 w-full">
         <button
           onClick={() => navigate(-1)}
           className="mb-4 text-sm bg-olive-800 p-3 rounded-2xl text-olive-50 hover:bg-olive-400 transition-all"
@@ -121,8 +122,11 @@ export default function SessionSummaryPage() {
           </div>
         </div>
       </div>
-      <div className="flex-1 px-12 flex items-center justify-center">
-        <PlantMapViewer mesaStatuses={mesaStatuses} />
+      <div className="flex-1 px-12 flex items-center justify-center max-h-[80vh]">
+        <PlantMapViewer
+          mesaStatuses={mesaStatuses}
+          svg={data.session.plant.svgContent}
+        />
       </div>
     </div>
   );

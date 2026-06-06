@@ -34,6 +34,7 @@ export interface SessionSummary {
       id: string;
       name: string;
       location: string;
+      svgContent: string;
     };
   };
 }
