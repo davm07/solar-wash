@@ -18,6 +18,7 @@ interface Plant {
   name: string;
   location: string;
   totalMesas: number;
+  svgPath: string;
 }
 
 interface Session {

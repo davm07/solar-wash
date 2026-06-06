@@ -17,6 +17,7 @@ interface Plant {
   name: string;
   location: string;
   totalMesas: number;
+  svgPath: string;
 }
 
 export default function PlantSelectScreen({ navigation }: any) {
@@ -48,6 +49,7 @@ export default function PlantSelectScreen({ navigation }: any) {
   const handleSelectPlant = (plant: Plant) => {
     setPlant(plant);
     navigation.navigate("Session");
+    console.log("Planta seleccionada:", plant);
   };
 
   if (loading) {
