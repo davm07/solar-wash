@@ -11,13 +11,13 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useState, useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
 import api from "../utils/api";
-import { MesaStatus } from "../components/PlantDemoSVG";
 import { parseSvg, ParsedSvg } from "../utils/parseSvg";
 import { SkiaPlantMap } from "../components/SkiaPlantMap";
 
 const { width } = Dimensions.get("window");
 
 type Mode = "view" | "scanning";
+export type MesaStatus = "pending" | "in_progress" | "done";
 
 export default function SessionScreen({ navigation }: any) {
   const [mode, setMode] = useState<Mode>("view");
