@@ -9,11 +9,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useState, useEffect } from "react";
-import { ZoomableSVG } from "../components/ZoomableSVG";
-import PlantaSVG from "../components/PlantDemoSVG";
 import { useAppStore } from "../store/useAppStore";
 import api from "../utils/api";
 import { MesaStatus } from "../components/PlantDemoSVG";
+import { parseSvg, ParsedSvg } from "../utils/parseSvg";
+import { SkiaPlantMap } from "../components/SkiaPlantMap";
 
 const { width } = Dimensions.get("window");
 
@@ -23,6 +23,9 @@ export default function SessionScreen({ navigation }: any) {
   const [mode, setMode] = useState<Mode>("view");
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
+  const [parsedSvg, setParsedSvg] = useState<ParsedSvg | null>(null);
+  const [svgLoading, setSvgLoading] = useState(true);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // 🧠 ZUSTAND STATE
   const plant = useAppStore((s) => s.plant);
@@ -47,6 +50,7 @@ export default function SessionScreen({ navigation }: any) {
 
   useEffect(() => {
     fetchMesas();
+    fetchSvgMap();
   }, []);
 
   const fetchMesas = async () => {
@@ -60,6 +64,25 @@ export default function SessionScreen({ navigation }: any) {
           error.message ||
           "No se pudieron cargar las mesas",
       );
+    }
+  };
+
+  const fetchSvgMap = async () => {
+    try {
+      setSvgLoading(true);
+      const { data } = await api.get(`/plants/${plant?.id}/svg`);
+      const parsedSvg = parseSvg(data.svg);
+      // Aquí podrías hacer algo con el SVG, como guardarlo en el estado si decides mostrarlo en lugar del demo
+      setParsedSvg(parsedSvg);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo cargar el mapa de la planta",
+      );
+    } finally {
+      setSvgLoading(false);
     }
   };
 
@@ -164,10 +187,6 @@ export default function SessionScreen({ navigation }: any) {
     }
   };
 
-  const PADDING_HORIZONTAL = 16 * 2;
-  const svgBaseWidth = width - PADDING_HORIZONTAL;
-  const svgBaseHeight = svgBaseWidth * (147.16888 / 367.04461);
-
   // 🧠 DATA REAL
   const mesaActual = currentMesaId ?? "—";
   const mesasLavadas = mesas.filter((m) => m.status === "done").length;
@@ -229,10 +248,29 @@ export default function SessionScreen({ navigation }: any) {
   // =========================
   return (
     <SafeAreaView style={s.container}>
-      <View style={s.svgContainer}>
-        <ZoomableSVG baseWidth={svgBaseWidth} baseHeight={svgBaseHeight}>
-          <PlantaSVG mesasState={mesasState} />
-        </ZoomableSVG>
+      <View
+        style={s.svgContainer}
+        onLayout={(e) => {
+          const { width: w, height: h } = e.nativeEvent.layout;
+          setContainerSize({ width: w, height: h });
+        }}
+      >
+        {svgLoading ? (
+          <View style={s.centered}>
+            <Text>Cargando plano...</Text>
+          </View>
+        ) : parsedSvg && containerSize.width > 0 ? (
+          <SkiaPlantMap
+            parsedSvg={parsedSvg}
+            width={containerSize.width}
+            height={containerSize.height}
+            mesasState={mesasState}
+          />
+        ) : (
+          <View style={s.centered}>
+            <Text>No se pudo cargar el plano</Text>
+          </View>
+        )}
       </View>
 
       <View style={s.panel}>
@@ -324,6 +362,7 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
+    marginTop: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,

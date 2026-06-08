@@ -10,7 +10,6 @@ export default function SessionSummaryPage() {
   const id = sessionId as string;
 
   const { data, isLoading, isError } = useSessionSummary(id);
-  console.log("Session summary data:", data);
 
   if (isLoading) {
     return <p>Cargando el resumen de la sesión...</p>;
