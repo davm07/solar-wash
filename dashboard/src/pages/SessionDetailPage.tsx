@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSessionSummary } from "../hooks/useSessionSummary";
 import formatDuration from "../utils/formatDuration";
 import PlantMapViewer from "../components/PlantMapViewer";
+import { useMesaRealtime } from "../hooks/useMesaRealtime";
 
 export default function SessionSummaryPage() {
   const { sessionId } = useParams();
@@ -10,6 +11,8 @@ export default function SessionSummaryPage() {
   const id = sessionId as string;
 
   const { data, isLoading, isError } = useSessionSummary(id);
+
+  useMesaRealtime(data?.session.plant.id ?? null, data?.session.id ?? null);
 
   if (isLoading) {
     return <p>Cargando el resumen de la sesión...</p>;

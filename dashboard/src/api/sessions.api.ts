@@ -20,7 +20,7 @@ export interface SessionSummary {
     status: string;
   }[];
   session: {
-    id: number;
+    id: string;
     finishedAt: string;
     startedAt: string;
     technicianId: string;
