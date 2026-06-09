@@ -1,6 +1,6 @@
 import { Canvas, Path, Group, Skia, Rect } from "@shopify/react-native-skia";
 import { ParsedSvg } from "../utils/parseSvg";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, memo } from "react";
 import { PixelRatio, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -24,11 +24,10 @@ interface SkiaPlantMapProps {
   mesasState: Record<string, string>;
 }
 
-const MAX_ZOOM = 8;
-const EXTRA_ZOOM = 4; // pixelRatio (≈3) × EXTRA_ZOOM (4) = factor ≈12 → sharp up to 8×
+const MAX_ZOOM = 5;
 const MIN_ZOOM = 0.5;
 
-export function SkiaPlantMap({
+export const SkiaPlantMap = memo(function SkiaPlantMap({
   parsedSvg,
   width,
   height,
@@ -36,13 +35,13 @@ export function SkiaPlantMap({
 }: SkiaPlantMapProps) {
   const { borderD, rects } = parsedSvg;
 
-  // Render the canvas at the device's full physical resolution so it stays
+  // Render the canvas at the device's physical pixel ratio so it stays
   // sharp when the user zooms in. Skia works in logical points by default,
   // so we scale the canvas up by the pixel ratio and then shrink the View
   // back down with a transform — giving us a hi-res surface at no extra
   // visual cost at scale=1.
   const pixelRatio = PixelRatio.get();
-  const factor = pixelRatio * EXTRA_ZOOM;
+  const factor = pixelRatio;
   const canvasWidth = width * factor;
   const canvasHeight = height * factor;
 
@@ -277,4 +276,4 @@ export function SkiaPlantMap({
       </View>
     </GestureDetector>
   );
-}
+});

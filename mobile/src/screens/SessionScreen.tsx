@@ -8,13 +8,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAppStore } from "../store/useAppStore";
 import api from "../utils/api";
 import { parseSvg, ParsedSvg } from "../utils/parseSvg";
 import { SkiaPlantMap } from "../components/SkiaPlantMap";
-
-const { width } = Dimensions.get("window");
 
 type Mode = "view" | "scanning";
 export type MesaStatus = "pending" | "in_progress" | "done";
@@ -188,18 +186,21 @@ export default function SessionScreen({ navigation }: any) {
   };
 
   // 🧠 DATA REAL
-  const mesaActual = currentMesaId ?? "—";
   const mesasLavadas = mesas.filter((m) => m.status === "done").length;
   const totalMesas = plant?.totalMesas ?? 0;
   const porcentaje = totalMesas
     ? Math.round((mesasLavadas / totalMesas) * 100)
     : 0;
-  const mesasState = mesas.reduce(
-    (acc, m) => {
-      acc[m.code] = m.status;
-      return acc;
-    },
-    {} as Record<string, MesaStatus>,
+  const mesasState = useMemo(
+    () =>
+      mesas.reduce(
+        (acc, m) => {
+          acc[m.code] = m.status;
+          return acc;
+        },
+        {} as Record<string, string>,
+      ),
+    [mesas],
   );
 
   // =========================
