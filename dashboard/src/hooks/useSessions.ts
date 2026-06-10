@@ -6,5 +6,6 @@ export const useSessions = (plantId: number, enabled: boolean) => {
     queryKey: ["sessions", plantId],
     queryFn: () => fetchSessionsByPlant(plantId),
     enabled, // 👈 key for lazy loading
+    refetchInterval: enabled ? 30_000 : false, // Refetch every 30 seconds when the component is open
   });
 };

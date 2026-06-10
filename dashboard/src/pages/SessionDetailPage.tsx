@@ -59,6 +59,13 @@ export default function SessionSummaryPage() {
           <h1 className="text-3xl font-bold">Resumen de la sesión</h1>
 
           <p className="text-gray-500 mt-1">Sesión #{data.session.id}</p>
+          <p className="text-sm mt-1">
+            {data.session.finishedAt ? (
+              <span className="text-green-700">Finalizada</span>
+            ) : (
+              <span className="text-yellow-700">En progreso</span>
+            )}
+          </p>
         </div>
 
         {/* INFO GRID */}
@@ -86,15 +93,22 @@ export default function SessionSummaryPage() {
             <h2 className="font-semibold mb-2">Date</h2>
 
             <p>
-              {getSessionDate(data.session.startedAt, data.session.finishedAt)}
+              {data.session.finishedAt
+                ? getSessionDate(
+                    data.session.startedAt,
+                    data.session.finishedAt,
+                  )
+                : `${new Date(data.session.startedAt).toLocaleDateString()} - En progreso`}
             </p>
           </div>
 
           {/* DURATION */}
           <div className="bg-olive-50 rounded-xl shadow-sm border p-4 border-olive-200">
             <h2 className="font-semibold mb-2">Duración</h2>
-
-            <p>{formatDuration(Number(data.duracionTotal))}</p>
+            <p>
+              {formatDuration(Number(data.duracionTotal))}
+              {!data.session.finishedAt && " (en curso)"}
+            </p>
           </div>
         </div>
 
@@ -124,7 +138,7 @@ export default function SessionSummaryPage() {
           </div>
         </div>
       </div>
-      <div className="flex-1 px-12 flex items-center justify-center max-h-[80vh]">
+      <div className="flex-1 px-12 flex items-center justify-center lg:max-h-[80vh] mb-3 lg:mb-0">
         <PlantMapViewer
           mesaStatuses={mesaStatuses}
           svg={data.session.plant.svgContent}

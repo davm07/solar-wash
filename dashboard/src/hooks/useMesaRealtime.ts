@@ -10,6 +10,7 @@ export function useMesaRealtime(
 
   useEffect(() => {
     if (!plantId) return;
+    console.log(`Subscribing to real-time updates for plant ${plantId}`);
 
     const channel = supabase
       .channel(`plant:${plantId}`)
@@ -24,7 +25,9 @@ export function useMesaRealtime(
         },
         (payload) => {
           console.log("Mesa updated:", payload.new);
-          queryClient.invalidateQueries({ queryKey: ["sessionSummary"] });
+          queryClient.invalidateQueries({
+            queryKey: ["session-summary", sessionId],
+          });
         },
       )
       // Session end
@@ -39,7 +42,9 @@ export function useMesaRealtime(
         (payload) => {
           if (payload.new.finished_at) {
             console.log("Session ended");
-            queryClient.invalidateQueries({ queryKey: ["sessionSummary"] });
+            queryClient.invalidateQueries({
+              queryKey: ["session-summary", sessionId],
+            });
           }
         },
       )

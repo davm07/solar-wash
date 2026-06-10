@@ -90,7 +90,9 @@ export default function PlantCard({ plant }: { plant: Plant }) {
                 className="flex justify-between p-2 hover:bg-olive-100 rounded cursor-pointer"
               >
                 <span>
-                  {getSessionDate(session.startedAt, session.finishedAt)}
+                  {session.finishedAt
+                    ? getSessionDate(session.startedAt, session.finishedAt)
+                    : "Sesión en curso"}
                 </span>
                 <span className="text-sm text-gray-500">
                   {getSessionDuration(
