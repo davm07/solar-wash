@@ -112,10 +112,10 @@ export default function SessionSummaryPage() {
           </div>
         </div>
 
-        {/* WASHING PROGRESS */}
+        {/* WASHING PROGRESS - SESSION */}
         <div className="bg-olive-50 rounded-xl shadow-sm border p-6 mt-6 border-olive-200">
           <div className="flex justify-between mb-2">
-            <h2 className="font-semibold">Progreso de lavado</h2>
+            <h2 className="font-semibold">Progreso de lavado (esta sesión)</h2>
 
             <span className="font-bold">{data.porcentaje}%</span>
           </div>
@@ -137,6 +137,36 @@ export default function SessionSummaryPage() {
             <span>Mesas totales: {data.totalMesas}</span>
           </div>
         </div>
+
+        {/* CYCLE PROGRESS (if available) */}
+        {data.cycleProgress && (
+          <div className="bg-blue-50 rounded-xl shadow-sm border p-6 mt-4 border-blue-200">
+            <div className="flex justify-between mb-2">
+              <h2 className="font-semibold text-blue-800">
+                Progreso del ciclo completo
+              </h2>
+              <span className="font-bold text-blue-700">
+                {data.cycleProgress.percentage}%
+              </span>
+            </div>
+
+            <div className="w-full bg-blue-100 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-blue-500 h-full transition-all"
+                style={{
+                  width: `${data.cycleProgress.percentage}%`,
+                }}
+              />
+            </div>
+
+            <div className="flex justify-between mt-4 text-sm text-blue-600">
+              <span>
+                Mesas lavadas en el ciclo: {data.cycleProgress.mesasDone}
+              </span>
+              <span>Total: {data.cycleProgress.totalMesas}</span>
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex-1 px-12 flex items-center justify-center lg:max-h-[80vh] mb-3 lg:mb-0">
         <PlantMapViewer

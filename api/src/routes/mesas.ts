@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index";
-import { mesas, mesaWashes, washSessions } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { mesas, mesaWashes, washSessions, cleaningCycles } from "../db/schema";
+import { eq, count, and, isNull } from "drizzle-orm";
 import {
   requireAuth,
   AuthRequest,
@@ -107,6 +107,37 @@ router.post(
         .set({ status: "done" })
         .where(eq(mesas.id, mesa.id))
         .returning();
+
+      // Check if all mesas for this plant are done
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(mesas)
+        .where(eq(mesas.plantId, mesa.plantId));
+
+      const [{ done }] = await db
+        .select({ done: count() })
+        .from(mesas)
+        .where(
+          and(eq(mesas.plantId, mesa.plantId), eq(mesas.status, "done")),
+        );
+
+      // If all done → finish active cycle + reset all mesas to pending
+      if (total === done) {
+        await db
+          .update(cleaningCycles)
+          .set({ finishedAt: new Date() })
+          .where(
+            and(
+              eq(cleaningCycles.plantId, mesa.plantId),
+              isNull(cleaningCycles.finishedAt),
+            ),
+          );
+
+        await db
+          .update(mesas)
+          .set({ status: "pending" })
+          .where(eq(mesas.plantId, mesa.plantId));
+      }
 
       res.json({ durationSeconds, mesa: mesaActualizada });
     } catch (error) {

@@ -9,6 +9,20 @@ export interface Session {
   notes?: string;
 }
 
+export interface ActiveCycle {
+  cycle: {
+    id: string;
+    plantId: string;
+    startedAt: string;
+    finishedAt: string | null;
+  } | null;
+  mesasDone: number;
+  totalMesas: number;
+  percentage: number;
+  sessionCount: number;
+  technicianCount: number;
+}
+
 export interface SessionSummary {
   mesasLavadas: number;
   totalMesas: number;
@@ -19,6 +33,14 @@ export interface SessionSummary {
     label: string;
     status: string;
   }[];
+  cycleProgress: {
+    cycleId: string;
+    startedAt: string;
+    finishedAt: string | null;
+    mesasDone: number;
+    totalMesas: number;
+    percentage: number;
+  } | null;
   session: {
     id: string;
     finishedAt: string;
@@ -40,7 +62,7 @@ export interface SessionSummary {
 }
 
 export const fetchSessionsByPlant = async (
-  plantId: number,
+  plantId: string,
 ): Promise<Session[]> => {
   const { data } = await api.get(`/sessions/${plantId}`);
   return data;
@@ -50,5 +72,73 @@ export const fetchSessionSummary = async (
   sessionId: string,
 ): Promise<SessionSummary> => {
   const { data } = await api.get(`/sessions/${sessionId}/summary`);
+  return data;
+};
+
+export const fetchActiveCycle = async (
+  plantId: string,
+): Promise<ActiveCycle> => {
+  const { data } = await api.get(`/sessions/cycles/active/${plantId}`);
+  return data;
+};
+
+export const finishCycle = async (cycleId: string) => {
+  const { data } = await api.post(`/sessions/cycles/${cycleId}/finish`);
+  return data;
+};
+
+// ============================
+// CYCLE HISTORY
+// ============================
+
+export interface CycleHistoryItem {
+  id: string;
+  plantId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  mesasDone: number;
+  totalMesas: number;
+  percentage: number;
+  sessionCount: number;
+  technicianCount: number;
+}
+
+export interface CycleSummary {
+  cycle: {
+    id: string;
+    plantId: string;
+    startedAt: string;
+    finishedAt: string | null;
+  };
+  mesasDone: number;
+  totalMesas: number;
+  percentage: number;
+  sessions: {
+    id: string;
+    technicianId: string;
+    startedAt: string;
+    finishedAt: string | null;
+    technicianName: string;
+    mesasWashed: number;
+  }[];
+  technicians: {
+    id: string;
+    name: string;
+    mesasWashed: number;
+    sessionCount: number;
+  }[];
+}
+
+export const fetchCycleHistory = async (
+  plantId: string,
+): Promise<CycleHistoryItem[]> => {
+  const { data } = await api.get(`/sessions/cycles/list/${plantId}`);
+  return data;
+};
+
+export const fetchCycleSummary = async (
+  cycleId: string,
+): Promise<CycleSummary> => {
+  const { data } = await api.get(`/sessions/cycles/${cycleId}/summary`);
   return data;
 };

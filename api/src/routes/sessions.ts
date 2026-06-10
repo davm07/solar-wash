@@ -1,7 +1,14 @@
 import { Router } from "express";
 import { db } from "../db/index";
-import { washSessions, mesas, mesaWashes, plants, users } from "../db/schema";
-import { eq, count } from "drizzle-orm";
+import {
+  washSessions,
+  mesas,
+  mesaWashes,
+  plants,
+  users,
+  cleaningCycles,
+} from "../db/schema";
+import { eq, count, and, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   requireAuth,
   AuthRequest,
@@ -12,8 +19,9 @@ import { supabase } from "../lib/supabase";
 
 const router = Router();
 
-// Iniciar una sesión de lavado
-// nota un cliente podria iniciar la sesion, es decir esto es un error hay que corregirlo, solo un tecnico puede iniciar la sesion, hay que validar el rol del usuario
+// ============================
+// INICIAR SESIÓN (find/create cycle)
+// ============================
 router.post(
   "/start",
   requireAuth,
@@ -26,11 +34,32 @@ router.post(
     }
 
     try {
+      // Find active cycle for this plant (no finishedAt)
+      let [activeCycle] = await db
+        .select()
+        .from(cleaningCycles)
+        .where(
+          and(
+            eq(cleaningCycles.plantId, plantId),
+            isNull(cleaningCycles.finishedAt),
+          ),
+        );
+
+      // If no active cycle, create one
+      if (!activeCycle) {
+        [activeCycle] = await db
+          .insert(cleaningCycles)
+          .values({ plantId })
+          .returning();
+      }
+
+      // Create session linked to the cycle
       const [session] = await db
         .insert(washSessions)
         .values({
           plantId,
           technicianId: req.user!.id,
+          cycleId: activeCycle.id,
         })
         .returning();
 
@@ -42,7 +71,9 @@ router.post(
   },
 );
 
-// Finalizar una sesión de lavado
+// ============================
+// FINALIZAR SESIÓN
+// ============================
 router.post(
   "/:sessionId/finish",
   requireAuth,
@@ -77,6 +108,9 @@ router.post(
   },
 );
 
+// ============================
+// LISTAR SESIONES POR PLANTA
+// ============================
 router.get(
   "/:plantId",
   requireAuth,
@@ -101,7 +135,322 @@ router.get(
   },
 );
 
-// Obtener resumen de una sesión
+// ============================
+// OBTENER CICLO ACTIVO DE UNA PLANTA
+// ============================
+router.get(
+  "/cycles/active/:plantId",
+  requireAuth,
+  requireSessionAccess,
+  async (req: AuthRequest, res) => {
+    const { plantId } = req.params;
+
+    try {
+      // Find active cycle
+      const [cycle] = await db
+        .select()
+        .from(cleaningCycles)
+        .where(
+          and(
+            eq(cleaningCycles.plantId, plantId as string),
+            isNull(cleaningCycles.finishedAt),
+          ),
+        );
+
+      if (!cycle) {
+        return res.json({
+          cycle: null,
+          mesasDone: 0,
+          totalMesas: 0,
+          percentage: 0,
+          sessionCount: 0,
+          technicianCount: 0,
+        });
+      }
+
+      // Get all sessions in this cycle
+      const cycleSessions = await db
+        .select({ id: washSessions.id })
+        .from(washSessions)
+        .where(eq(washSessions.cycleId, cycle.id));
+
+      const sessionIds = cycleSessions.map((s) => s.id);
+
+      // Count mesas done across all sessions in this cycle
+      let mesasDone = 0;
+      if (sessionIds.length > 0) {
+        const [result] = await db
+          .select({ count: count() })
+          .from(mesaWashes)
+          .where(
+            and(
+              inArray(mesaWashes.sessionId, sessionIds),
+              isNotNull(mesaWashes.finishedAt),
+            ),
+          );
+        mesasDone = result.count;
+      }
+
+      // Total mesas for this plant
+      const [{ total: totalMesas }] = await db
+        .select({ total: count() })
+        .from(mesas)
+        .where(eq(mesas.plantId, plantId as string));
+
+      // Count unique technicians in this cycle
+      const technicians = await db
+        .select({ technicianId: washSessions.technicianId })
+        .from(washSessions)
+        .where(eq(washSessions.cycleId, cycle.id))
+        .groupBy(washSessions.technicianId);
+
+      res.json({
+        cycle,
+        mesasDone,
+        totalMesas,
+        percentage: totalMesas > 0 ? Math.round((mesasDone / totalMesas) * 100) : 0,
+        sessionCount: cycleSessions.length,
+        technicianCount: technicians.length,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// ============================
+// LISTAR TODOS LOS CICLOS DE UNA PLANTA
+// ============================
+router.get(
+  "/cycles/list/:plantId",
+  requireAuth,
+  requireSessionAccess,
+  async (req: AuthRequest, res) => {
+    const { plantId } = req.params;
+
+    try {
+      const cycles = await db
+        .select()
+        .from(cleaningCycles)
+        .where(eq(cleaningCycles.plantId, plantId as string));
+
+      // Get total mesas for this plant
+      const [{ total: totalMesas }] = await db
+        .select({ total: count() })
+        .from(mesas)
+        .where(eq(mesas.plantId, plantId as string));
+
+      // For each cycle, compute progress
+      const cyclesWithProgress = await Promise.all(
+        cycles.map(async (cycle) => {
+          const cycleSessions = await db
+            .select({ id: washSessions.id })
+            .from(washSessions)
+            .where(eq(washSessions.cycleId, cycle.id));
+
+          const sessionIds = cycleSessions.map((s) => s.id);
+
+          let mesasDone = 0;
+          if (sessionIds.length > 0) {
+            const [result] = await db
+              .select({ count: count() })
+              .from(mesaWashes)
+              .where(
+                and(
+                  inArray(mesaWashes.sessionId, sessionIds),
+                  isNotNull(mesaWashes.finishedAt),
+                ),
+              );
+            mesasDone = result.count;
+          }
+
+          const technicians = await db
+            .select({ technicianId: washSessions.technicianId })
+            .from(washSessions)
+            .where(eq(washSessions.cycleId, cycle.id))
+            .groupBy(washSessions.technicianId);
+
+          return {
+            ...cycle,
+            mesasDone,
+            totalMesas,
+            percentage:
+              totalMesas > 0
+                ? Math.round((mesasDone / totalMesas) * 100)
+                : 0,
+            sessionCount: cycleSessions.length,
+            technicianCount: technicians.length,
+          };
+        }),
+      );
+
+      res.json(cyclesWithProgress);
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// ============================
+// RESUMEN DE UN CICLO ESPECÍFICO
+// ============================
+router.get(
+  "/cycles/:cycleId/summary",
+  requireAuth,
+  requireSessionAccess,
+  async (req: AuthRequest, res) => {
+    const { cycleId } = req.params;
+
+    try {
+      const [cycle] = await db
+        .select()
+        .from(cleaningCycles)
+        .where(eq(cleaningCycles.id, cycleId as string));
+
+      if (!cycle) {
+        return res.status(404).json({ message: "Ciclo no encontrado" });
+      }
+
+      // Get all sessions in this cycle with technician info
+      const cycleSessions = await db
+        .select({
+          id: washSessions.id,
+          technicianId: washSessions.technicianId,
+          startedAt: washSessions.startedAt,
+          finishedAt: washSessions.finishedAt,
+          technicianName: users.name,
+        })
+        .from(washSessions)
+        .innerJoin(users, eq(washSessions.technicianId, users.id))
+        .where(eq(washSessions.cycleId, cycleId as string));
+
+      const sessionIds = cycleSessions.map((s) => s.id);
+
+      // Count mesas done across all sessions
+      let mesasDone = 0;
+      if (sessionIds.length > 0) {
+        const [result] = await db
+          .select({ count: count() })
+          .from(mesaWashes)
+          .where(
+            and(
+              inArray(mesaWashes.sessionId, sessionIds),
+              isNotNull(mesaWashes.finishedAt),
+            ),
+          );
+        mesasDone = result.count;
+      }
+
+      // Total mesas
+      const [{ total: totalMesas }] = await db
+        .select({ total: count() })
+        .from(mesas)
+        .where(eq(mesas.plantId, cycle.plantId));
+
+      // Get mesas washed per session
+      const sessionsWithDetails = await Promise.all(
+        cycleSessions.map(async (session) => {
+          const [{ done }] = await db
+            .select({ done: count() })
+            .from(mesaWashes)
+            .where(
+              and(
+                eq(mesaWashes.sessionId, session.id),
+                isNotNull(mesaWashes.finishedAt),
+              ),
+            );
+
+          return {
+            ...session,
+            mesasWashed: done,
+          };
+        }),
+      );
+
+      // Technician breakdown
+      const technicianBreakdown = await Promise.all(
+        (
+          await db
+            .select({ technicianId: washSessions.technicianId })
+            .from(washSessions)
+            .where(eq(washSessions.cycleId, cycleId as string))
+            .groupBy(washSessions.technicianId)
+        ).map(async (t) => {
+          const techSessions = cycleSessions.filter(
+            (s) => s.technicianId === t.technicianId,
+          );
+          const techSessionIds = techSessions.map((s) => s.id);
+
+          let mesasWashed = 0;
+          if (techSessionIds.length > 0) {
+            const [result] = await db
+              .select({ count: count() })
+              .from(mesaWashes)
+              .where(
+                and(
+                  inArray(mesaWashes.sessionId, techSessionIds),
+                  isNotNull(mesaWashes.finishedAt),
+                ),
+              );
+            mesasWashed = result.count;
+          }
+
+          const techName = techSessions[0]?.technicianName ?? "Unknown";
+
+          return {
+            id: t.technicianId,
+            name: techName,
+            mesasWashed,
+            sessionCount: techSessions.length,
+          };
+        }),
+      );
+
+      res.json({
+        cycle,
+        mesasDone,
+        totalMesas,
+        percentage:
+          totalMesas > 0 ? Math.round((mesasDone / totalMesas) * 100) : 0,
+        sessions: sessionsWithDetails,
+        technicians: technicianBreakdown,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// ============================
+// FINALIZAR CICLO
+// ============================
+router.post(
+  "/cycles/:cycleId/finish",
+  requireAuth,
+  requireTechnician,
+  async (req: AuthRequest, res) => {
+    const { cycleId } = req.params;
+
+    try {
+      const [cycle] = await db
+        .update(cleaningCycles)
+        .set({ finishedAt: new Date() })
+        .where(eq(cleaningCycles.id, cycleId as string))
+        .returning();
+
+      res.json(cycle);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// ============================
+// RESUMEN DE SESIÓN (with cycle progress)
+// ============================
 router.get(
   "/:sessionId/summary",
   requireAuth,
@@ -157,8 +506,51 @@ router.get(
               1000,
           )
         : Math.floor(
-            (Date.now() - new Date(result.session.startedAt!).getTime()) / 1000,
+            (Date.now() - new Date(result.session.startedAt!).getTime()) /
+              1000,
           );
+
+      // Cycle progress (if session belongs to a cycle)
+      let cycleProgress = null;
+      if (result.session.cycleId) {
+        const [cycle] = await db
+          .select()
+          .from(cleaningCycles)
+          .where(eq(cleaningCycles.id, result.session.cycleId));
+
+        if (cycle) {
+          const cycleSessions = await db
+            .select({ id: washSessions.id })
+            .from(washSessions)
+            .where(eq(washSessions.cycleId, cycle.id));
+
+          const sessionIds = cycleSessions.map((s) => s.id);
+
+          let cycleMesasDone = 0;
+          if (sessionIds.length > 0) {
+            const [r] = await db
+              .select({ count: count() })
+              .from(mesaWashes)
+              .where(
+                and(
+                  inArray(mesaWashes.sessionId, sessionIds),
+                  isNotNull(mesaWashes.finishedAt),
+                ),
+              );
+            cycleMesasDone = r.count;
+          }
+
+          cycleProgress = {
+            cycleId: cycle.id,
+            startedAt: cycle.startedAt,
+            finishedAt: cycle.finishedAt,
+            mesasDone: cycleMesasDone,
+            totalMesas: total,
+            percentage:
+              total > 0 ? Math.round((cycleMesasDone / total) * 100) : 0,
+          };
+        }
+      }
 
       const { data, error } = await supabase.storage
         .from("plantas")
@@ -186,6 +578,7 @@ router.get(
         porcentaje: Math.round((mesasLavadas.length / total) * 100),
         duracionTotal: duracionTotal as number,
         mesasPlanta,
+        cycleProgress,
       });
     } catch (error) {
       res.status(500).json({ message: "Error interno del servidor" });

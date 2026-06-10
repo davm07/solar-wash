@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchSessionsByPlant } from "../api/sessions.api";
 
-export const useSessions = (plantId: number, enabled: boolean) => {
+export const useSessions = (plantId: string, enabled: boolean) => {
   return useQuery({
     queryKey: ["sessions", plantId],
     queryFn: () => fetchSessionsByPlant(plantId),

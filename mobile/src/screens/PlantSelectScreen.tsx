@@ -48,7 +48,7 @@ export default function PlantSelectScreen({ navigation }: any) {
 
   const handleSelectPlant = (plant: Plant) => {
     setPlant(plant);
-    navigation.navigate("Session");
+    navigation.navigate("PlantDetail");
   };
 
   if (loading) {

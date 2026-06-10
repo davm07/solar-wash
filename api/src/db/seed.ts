@@ -43,43 +43,31 @@ async function seed() {
       plantId: planta.id,
       code: "MESA-001",
       label: "Mesa A-01",
-      row: 0,
-      col: 0,
     },
     {
       plantId: planta.id,
       code: "MESA-002",
       label: "Mesa A-02",
-      row: 0,
-      col: 1,
     },
     {
       plantId: planta.id,
       code: "MESA-003",
       label: "Mesa A-03",
-      row: 0,
-      col: 2,
     },
     {
       plantId: planta.id,
       code: "MESA-004",
       label: "Mesa B-01",
-      row: 1,
-      col: 0,
     },
     {
       plantId: planta.id,
       code: "MESA-005",
       label: "Mesa B-02",
-      row: 1,
-      col: 1,
     },
     {
       plantId: planta.id,
       code: "MESA-006",
       label: "Mesa B-03",
-      row: 1,
-      col: 2,
     },
   ]);
 

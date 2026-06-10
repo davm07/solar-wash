@@ -32,9 +32,16 @@ export const mesas = pgTable("mesas", {
     .references(() => plants.id),
   code: varchar("code", { length: 100 }).notNull().unique(),
   label: varchar("label", { length: 100 }).notNull(),
-  row: integer("row").notNull(),
-  col: integer("col").notNull(),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
+});
+
+export const cleaningCycles = pgTable("cleaning_cycles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  plantId: uuid("plant_id")
+    .notNull()
+    .references(() => plants.id),
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
 });
 
 export const washSessions = pgTable("wash_sessions", {
@@ -47,6 +54,7 @@ export const washSessions = pgTable("wash_sessions", {
     .references(() => users.id),
   startedAt: timestamp("started_at").defaultNow(),
   finishedAt: timestamp("finished_at"),
+  cycleId: uuid("cycle_id").references(() => cleaningCycles.id),
   notes: varchar("notes", { length: 500 }),
 });
 

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useSessions } from "../hooks/useSessions";
+import { useActiveCycle } from "../hooks/useActiveCycle";
+import { useCycleHistory } from "../hooks/useCycleHistory";
 import { useNavigate } from "react-router-dom";
 import formatDuration from "../utils/formatDuration";
 
 interface Plant {
-  id: number;
+  id: string;
   name: string;
   location: string;
   client?: string;
@@ -15,6 +17,8 @@ export default function PlantCard({ plant }: { plant: Plant }) {
   const navigate = useNavigate();
 
   const { data: sessions, isLoading, isError } = useSessions(plant.id, open);
+  const { data: cycleData } = useActiveCycle(plant.id);
+  const { data: cycleHistory } = useCycleHistory(plant.id);
 
   const getSessionDate = (startDate: string, endDate: string) => {
     const newStartDate = new Date(startDate);
@@ -33,6 +37,17 @@ export default function PlantCard({ plant }: { plant: Plant }) {
     return `${dayStart}/${monthStart + 1}/${yearStart} - ${dayEnd}/${monthEnd + 1}/${yearEnd}`;
   };
 
+  const getCycleDate = (startDate: string, endDate: string | null) => {
+    const start = new Date(startDate);
+    const startStr = `${start.getDate()}/${start.getMonth() + 1}/${start.getFullYear()}`;
+
+    if (!endDate) return `${startStr} - En curso`;
+
+    const end = new Date(endDate);
+    const endStr = `${end.getDate()}/${end.getMonth() + 1}/${end.getFullYear()}`;
+    return `${startStr} - ${endStr}`;
+  };
+
   const getSessionDuration = (startDate: string, endDate: string) => {
     const newStartDate = new Date(startDate);
     const newEndDate = new Date(endDate);
@@ -46,6 +61,10 @@ export default function PlantCard({ plant }: { plant: Plant }) {
   };
 
   const toggle = () => setOpen((prev) => !prev);
+
+  // Separate active and finished cycles
+  const finishedCycles =
+    cycleHistory?.filter((c) => c.finishedAt !== null) ?? [];
 
   return (
     <div className="bg-olive-50 border border-olive-200 rounded-xl p-4 shadow-sm mb-4 max-w-md">
@@ -66,6 +85,60 @@ export default function PlantCard({ plant }: { plant: Plant }) {
           {open ? "Esconder sesiones de lavado" : "Ver sesiones de lavado"}
         </button>
       </div>
+
+      {/* ACTIVE CYCLE PROGRESS */}
+      {cycleData?.cycle && (
+        <div className="mt-3 p-3 bg-white rounded-lg border border-olive-100">
+          <div className="flex justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700">
+              Ciclo activo
+            </span>
+            <span className="text-sm font-bold text-olive-700">
+              {cycleData.mesasDone}/{cycleData.totalMesas} (
+              {cycleData.percentage}%)
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-green-700 h-full transition-all"
+              style={{ width: `${cycleData.percentage}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2 text-xs text-gray-500">
+            <span>Sesiones: {cycleData.sessionCount}</span>
+            <span>Técnicos: {cycleData.technicianCount}</span>
+          </div>
+        </div>
+      )}
+
+      {/* FINISHED CYCLES */}
+      {finishedCycles.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-medium text-gray-500 mb-2">
+            Ciclos anteriores
+          </p>
+          {finishedCycles.map((cycle) => (
+            <div
+              key={cycle.id}
+              onClick={() => navigate(`/cycles/${cycle.id}`)}
+              className="flex justify-between items-center p-2 bg-white rounded-lg border border-gray-100 mb-1 hover:bg-gray-50 cursor-pointer"
+            >
+              <div className="text-xs">
+                <p className="text-gray-700">
+                  {getCycleDate(cycle.startedAt, cycle.finishedAt)}
+                </p>
+                <p className="text-gray-400">
+                  {cycle.sessionCount} sesiones · {cycle.technicianCount}{" "}
+                  técnicos
+                </p>
+              </div>
+              <span className="text-xs font-bold text-green-700">
+                {cycle.percentage}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* SESSIONS */}
       {open && (
@@ -95,10 +168,9 @@ export default function PlantCard({ plant }: { plant: Plant }) {
                     : "Sesión en curso"}
                 </span>
                 <span className="text-sm text-gray-500">
-                  {getSessionDuration(
-                    session.startedAt,
-                    session.finishedAt,
-                  )}{" "}
+                  {session.finishedAt
+                    ? getSessionDuration(session.startedAt, session.finishedAt)
+                    : ""}
                 </span>
               </div>
             ))}
