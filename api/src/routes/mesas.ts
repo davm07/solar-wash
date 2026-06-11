@@ -8,6 +8,7 @@ import {
   requireTechnician,
   requirePlantAccess,
 } from "../middleware/auth";
+import { sendCycleCompletionEmail } from "../lib/email";
 
 const router = Router();
 
@@ -214,7 +215,7 @@ router.post(
 
       // If all done → finish active cycle + reset all mesas to pending
       if (total === done) {
-        await db
+        const [finishedCycle] = await db
           .update(cleaningCycles)
           .set({ finishedAt: new Date() })
           .where(
@@ -222,12 +223,20 @@ router.post(
               eq(cleaningCycles.plantId, mesa.plantId),
               isNull(cleaningCycles.finishedAt),
             ),
-          );
+          )
+          .returning();
 
         await db
           .update(mesas)
           .set({ status: "pending" })
           .where(eq(mesas.plantId, mesa.plantId));
+
+        // Send cycle completion email (async, don't block response)
+        if (finishedCycle) {
+          sendCycleCompletionEmail(finishedCycle.id).catch((err) =>
+            console.error("Failed to send cycle completion email:", err),
+          );
+        }
       }
 
       res.json({ durationSeconds, mesa: mesaActualizada });
