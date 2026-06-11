@@ -3,6 +3,7 @@ import {
   uuid,
   varchar,
   integer,
+  real,
   timestamp,
 } from "drizzle-orm/pg-core";
 
@@ -56,6 +57,7 @@ export const washSessions = pgTable("wash_sessions", {
   finishedAt: timestamp("finished_at"),
   cycleId: uuid("cycle_id").references(() => cleaningCycles.id),
   notes: varchar("notes", { length: 500 }),
+  waterConsumption: real("water_consumption"),
 });
 
 export const mesaWashes = pgTable("mesa_washes", {

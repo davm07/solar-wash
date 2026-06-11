@@ -31,6 +31,7 @@ interface CycleSummary {
   }[];
   sessionDuration: number;
   washingDuration: number;
+  totalWaterConsumption: number;
 }
 
 export default function CycleDetailScreen({ route, navigation }: any) {
@@ -154,6 +155,19 @@ export default function CycleDetailScreen({ route, navigation }: any) {
             <Text style={styles.durationMeta}>Tiempo activo</Text>
           </View>
         </View>
+
+        {/* WATER CONSUMPTION */}
+        {summary.totalWaterConsumption > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.label}>Consumo total de agua</Text>
+            <Text style={styles.durationValue}>
+              {summary.totalWaterConsumption} m³
+            </Text>
+            <Text style={styles.durationMeta}>
+              Agua consumida en todas las sesiones del ciclo
+            </Text>
+          </View>
+        )}
 
         {/* TECHNICIANS */}
         {summary.technicians.length > 0 && (

@@ -108,6 +108,15 @@ export default function SessionSummaryScreen({ route, navigation }: any) {
           <Text style={styles.value}>
             {formatDuration(summary.duracionTotal)}
           </Text>
+
+          {summary.session.waterConsumption != null && (
+            <>
+              <Text style={styles.label}>Consumo de agua</Text>
+              <Text style={styles.value}>
+                {summary.session.waterConsumption} m³
+              </Text>
+            </>
+          )}
         </View>
 
         {/* SVG MAP */}

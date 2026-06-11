@@ -47,6 +47,7 @@ export interface SessionSummary {
     technicianId: string;
     plantId: string;
     notes?: string;
+    waterConsumption: number | null;
     technician: {
       id: string;
       name: string;
@@ -133,6 +134,7 @@ export interface CycleSummary {
   }[];
   sessionDuration: number;
   washingDuration: number;
+  totalWaterConsumption: number;
 }
 
 export const fetchCycleHistory = async (

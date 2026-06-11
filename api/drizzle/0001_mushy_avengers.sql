@@ -1,0 +1,1 @@
+ALTER TABLE "wash_sessions" ADD COLUMN "water_consumption" real;

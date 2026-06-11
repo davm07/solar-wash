@@ -5,6 +5,8 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -24,6 +26,8 @@ export default function SessionScreen({ navigation }: any) {
   const [parsedSvg, setParsedSvg] = useState<ParsedSvg | null>(null);
   const [svgLoading, setSvgLoading] = useState(true);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [showWaterModal, setShowWaterModal] = useState(false);
+  const [waterConsumption, setWaterConsumption] = useState("");
 
   // 🧠 ZUSTAND STATE
   const plant = useAppStore((s) => s.plant);
@@ -107,9 +111,8 @@ export default function SessionScreen({ navigation }: any) {
   // END SESSION (REAL API)
   // =========================
   const finishSession = async () => {
-    if (!session?.id) return; // seguridad extra, aunque el botón solo aparece si hay sesión
+    if (!session?.id) return;
 
-    // 🚨 VALIDACIÓN
     if (currentMesaId) {
       Alert.alert(
         "Mesa en progreso",
@@ -118,12 +121,31 @@ export default function SessionScreen({ navigation }: any) {
       return;
     }
 
+    setShowWaterModal(true);
+  };
+
+  const confirmFinishSession = async () => {
+    if (!session?.id) return;
+
+    const waterValue = waterConsumption.trim()
+      ? parseFloat(waterConsumption)
+      : null;
+
+    if (waterConsumption.trim() && (isNaN(waterValue!) || waterValue! < 0)) {
+      Alert.alert("Error", "Ingresa un valor válido para el consumo de agua");
+      return;
+    }
+
     try {
-      await api.post(`/sessions/${session.id}/finish`);
+      await api.post(`/sessions/${session.id}/finish`, {
+        waterConsumption: waterValue,
+      });
       const sessionId = session.id;
 
       endSession();
       setCurrentMesa(null);
+      setShowWaterModal(false);
+      setWaterConsumption("");
 
       setMode("view");
       Alert.alert("Sesión finalizada", "¡La jornada ha terminado!");
@@ -355,6 +377,48 @@ export default function SessionScreen({ navigation }: any) {
           </View>
         )}
       </View>
+
+      {/* WATER CONSUMPTION MODAL */}
+      <Modal
+        visible={showWaterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowWaterModal(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Consumo de agua</Text>
+            <Text style={s.modalSubtitle}>
+              Ingresa el consumo de agua en m³ (opcional)
+            </Text>
+            <TextInput
+              style={s.modalInput}
+              placeholder="Ej: 0.5"
+              keyboardType="numeric"
+              value={waterConsumption}
+              onChangeText={setWaterConsumption}
+              autoFocus
+            />
+            <View style={s.modalButtons}>
+              <TouchableOpacity
+                style={[s.modalBtn, s.modalBtnCancel]}
+                onPress={() => {
+                  setShowWaterModal(false);
+                  setWaterConsumption("");
+                }}
+              >
+                <Text style={s.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalBtn, s.modalBtnConfirm]}
+                onPress={confirmFinishSession}
+              >
+                <Text style={s.modalBtnConfirmText}>Finalizar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -428,5 +492,61 @@ const s = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 350,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#888",
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalBtnCancel: {
+    backgroundColor: "#f3f4f6",
+  },
+  modalBtnCancelText: {
+    color: "#374151",
+    fontWeight: "600",
+  },
+  modalBtnConfirm: {
+    backgroundColor: "#1D9E75",
+  },
+  modalBtnConfirmText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });

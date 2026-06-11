@@ -81,6 +81,7 @@ router.post(
   requireTechnician,
   async (req: AuthRequest, res) => {
     const { sessionId } = req.params;
+    const { waterConsumption } = req.body;
 
     try {
       const mesasEnProgreso = await db
@@ -98,7 +99,10 @@ router.post(
 
       const [session] = await db
         .update(washSessions)
-        .set({ finishedAt: new Date() })
+        .set({
+          finishedAt: new Date(),
+          waterConsumption: waterConsumption ?? null,
+        })
         .where(eq(washSessions.id, sessionId as string))
         .returning();
 
@@ -473,6 +477,18 @@ router.get(
         washingDuration = Number(result.total) || 0;
       }
 
+      // Calculate total water consumption (sum of waterConsumption from sessions)
+      let totalWaterConsumption = 0;
+      if (sessionIds.length > 0) {
+        const [result] = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(${washSessions.waterConsumption}), 0)`,
+          })
+          .from(washSessions)
+          .where(inArray(washSessions.id, sessionIds));
+        totalWaterConsumption = Number(result.total) || 0;
+      }
+
       // Get plant SVG
       const [plant] = await db
         .select({ svgPath: plants.svgPath })
@@ -504,6 +520,7 @@ router.get(
         mesasCycle,
         sessionDuration,
         washingDuration,
+        totalWaterConsumption,
       });
     } catch (error) {
       console.log(error);

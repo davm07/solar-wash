@@ -108,6 +108,19 @@ export default function CycleDetailPage() {
           </div>
         </div>
 
+        {/* WATER CONSUMPTION */}
+        {data.totalWaterConsumption > 0 && (
+          <div className="bg-olive-50 rounded-xl shadow-sm border p-4 border-olive-200 mt-4">
+            <h2 className="font-semibold mb-2">Consumo total de agua</h2>
+            <p className="text-2xl font-bold text-olive-700">
+              {data.totalWaterConsumption} m³
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Agua consumida en todas las sesiones del ciclo
+            </p>
+          </div>
+        )}
+
         {/* CYCLE PROGRESS */}
         <div className="bg-olive-50 rounded-xl shadow-sm border p-6 mt-6 border-olive-200">
           <div className="flex justify-between mb-2">

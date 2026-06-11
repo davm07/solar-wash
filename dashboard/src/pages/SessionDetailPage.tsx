@@ -110,6 +110,14 @@ export default function SessionSummaryPage() {
               {!data.session.finishedAt && " (en curso)"}
             </p>
           </div>
+
+          {/* WATER CONSUMPTION */}
+          {data.session.waterConsumption != null && (
+            <div className="bg-olive-50 rounded-xl shadow-sm border p-4 border-olive-200">
+              <h2 className="font-semibold mb-2">Consumo de agua</h2>
+              <p>{data.session.waterConsumption} m³</p>
+            </div>
+          )}
         </div>
 
         {/* WASHING PROGRESS - SESSION */}
