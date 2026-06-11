@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/index";
-import { mesas, mesaWashes, washSessions, cleaningCycles } from "../db/schema";
+import { mesas, mesaWashes, cleaningCycles } from "../db/schema";
 import { eq, count, and, isNull } from "drizzle-orm";
 import {
   requireAuth,
@@ -45,6 +45,48 @@ router.post(
         return res.status(404).json({ message: "Mesa no encontrada" });
       }
 
+      // Check if this mesa already has a wash record in THIS session
+      const [existingInSession] = await db
+        .select()
+        .from(mesaWashes)
+        .where(
+          and(
+            eq(mesaWashes.mesaId, mesa.id),
+            eq(mesaWashes.sessionId, sessionId),
+          ),
+        );
+
+      if (existingInSession) {
+        if (existingInSession.finishedAt) {
+          return res.status(400).json({
+            message: "Esta mesa ya fue lavada en esta sesión",
+            code: "ALREADY_WASHED_IN_SESSION",
+          });
+        }
+        return res.status(400).json({
+          message: "Esta mesa ya está en progreso en esta sesión",
+          code: "IN_PROGRESS_IN_SESSION",
+        });
+      }
+
+      // Check if another session is currently washing this mesa
+      const [activeWashOtherSession] = await db
+        .select()
+        .from(mesaWashes)
+        .where(
+          and(
+            eq(mesaWashes.mesaId, mesa.id),
+            isNull(mesaWashes.finishedAt),
+          ),
+        );
+
+      if (activeWashOtherSession && activeWashOtherSession.sessionId !== sessionId) {
+        return res.status(400).json({
+          message: "Esta mesa la está lavando otro técnico",
+          code: "IN_PROGRESS_BY_OTHER",
+        });
+      }
+
       // Crear registro de lavado
       const [mesaWash] = await db
         .insert(mesaWashes)
@@ -74,7 +116,7 @@ router.post(
   requireAuth,
   requireTechnician,
   async (req: AuthRequest, res) => {
-    const { code } = req.body;
+    const { code, sessionId } = req.body;
 
     try {
       const [mesa] = await db.select().from(mesas).where(eq(mesas.code, code));
@@ -83,11 +125,60 @@ router.post(
         return res.status(404).json({ message: "Mesa no encontrada" });
       }
 
-      // Buscar el lavado activo de esta mesa
+      // Buscar el lavado activo de esta mesa EN ESTA SESIÓN
       const [mesaWash] = await db
         .select()
         .from(mesaWashes)
-        .where(eq(mesaWashes.mesaId, mesa.id));
+        .where(
+          and(
+            eq(mesaWashes.mesaId, mesa.id),
+            eq(mesaWashes.sessionId, sessionId),
+            isNull(mesaWashes.finishedAt),
+          ),
+        );
+
+      if (!mesaWash) {
+        // Check if it's being washed by another session
+        const [otherSessionWash] = await db
+          .select()
+          .from(mesaWashes)
+          .where(
+            and(
+              eq(mesaWashes.mesaId, mesa.id),
+              isNull(mesaWashes.finishedAt),
+            ),
+          );
+
+        if (otherSessionWash) {
+          return res.status(400).json({
+            message: "Esta mesa la está lavando otro técnico",
+            code: "IN_PROGRESS_BY_OTHER",
+          });
+        }
+
+        // Check if already fully washed in this session
+        const [alreadyWashed] = await db
+          .select()
+          .from(mesaWashes)
+          .where(
+            and(
+              eq(mesaWashes.mesaId, mesa.id),
+              eq(mesaWashes.sessionId, sessionId),
+            ),
+          );
+
+        if (alreadyWashed) {
+          return res.status(400).json({
+            message: "Esta mesa ya fue lavada en esta sesión",
+            code: "ALREADY_WASHED_IN_SESSION",
+          });
+        }
+
+        return res.status(400).json({
+          message: "No hay lavado activo para esta mesa en esta sesión",
+          code: "NO_ACTIVE_WASH",
+        });
+      }
 
       const finishedAt = new Date();
       const startedAt = new Date(mesaWash.startedAt!);

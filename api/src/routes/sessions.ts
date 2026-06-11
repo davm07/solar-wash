@@ -8,12 +8,13 @@ import {
   users,
   cleaningCycles,
 } from "../db/schema";
-import { eq, count, and, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, count, and, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 import {
   requireAuth,
   AuthRequest,
   requireTechnician,
   requireSessionAccess,
+  requireCycleAccess,
 } from "../middleware/auth";
 import { supabase } from "../lib/supabase";
 
@@ -299,7 +300,7 @@ router.get(
 router.get(
   "/cycles/:cycleId/summary",
   requireAuth,
-  requireSessionAccess,
+  requireCycleAccess,
   async (req: AuthRequest, res) => {
     const { cycleId } = req.params;
 
@@ -408,6 +409,89 @@ router.get(
         }),
       );
 
+      // Get per-mesa status across all sessions in this cycle
+      let mesasCycle: { code: string; status: string }[] = [];
+      if (sessionIds.length > 0) {
+        const allWashes = await db
+          .select({
+            mesaId: mesaWashes.mesaId,
+            finishedAt: mesaWashes.finishedAt,
+          })
+          .from(mesaWashes)
+          .where(inArray(mesaWashes.sessionId, sessionIds));
+
+        const mesaStatusMap = new Map<string, string>();
+        for (const wash of allWashes) {
+          const current = mesaStatusMap.get(wash.mesaId);
+          if (wash.finishedAt) {
+            mesaStatusMap.set(wash.mesaId, "done");
+          } else if (current !== "done") {
+            mesaStatusMap.set(wash.mesaId, "in_progress");
+          }
+        }
+
+        const mesaIds = Array.from(mesaStatusMap.keys());
+        if (mesaIds.length > 0) {
+          const mesaRows = await db
+            .select({ id: mesas.id, code: mesas.code })
+            .from(mesas)
+            .where(inArray(mesas.id, mesaIds));
+
+          mesasCycle = mesaRows.map((m) => ({
+            code: m.code,
+            status: mesaStatusMap.get(m.id) ?? "pending",
+          }));
+        }
+      }
+
+      // Calculate session duration (sum of finishedAt - startedAt)
+      let sessionDuration = 0;
+      if (sessionIds.length > 0) {
+        const [result] = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${washSessions.finishedAt} - ${washSessions.startedAt}))), 0)`,
+          })
+          .from(washSessions)
+          .where(
+            and(
+              inArray(washSessions.id, sessionIds),
+              isNotNull(washSessions.finishedAt),
+            ),
+          );
+        sessionDuration = Number(result.total) || 0;
+      }
+
+      // Calculate washing duration (sum of durationSeconds from mesaWashes)
+      let washingDuration = 0;
+      if (sessionIds.length > 0) {
+        const [result] = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(${mesaWashes.durationSeconds}), 0)`,
+          })
+          .from(mesaWashes)
+          .where(inArray(mesaWashes.sessionId, sessionIds));
+        washingDuration = Number(result.total) || 0;
+      }
+
+      // Get plant SVG
+      const [plant] = await db
+        .select({ svgPath: plants.svgPath })
+        .from(plants)
+        .where(eq(plants.id, cycle.plantId));
+
+      let svgContent: string | null = null;
+      if (plant?.svgPath) {
+        const { data, error } = await supabase.storage
+          .from("plantas")
+          .download(plant.svgPath);
+
+        if (error) {
+          console.error("Error descargando el SVG:", error);
+        }
+
+        svgContent = data ? await data.text() : null;
+      }
+
       res.json({
         cycle,
         mesasDone,
@@ -416,6 +500,10 @@ router.get(
           totalMesas > 0 ? Math.round((mesasDone / totalMesas) * 100) : 0,
         sessions: sessionsWithDetails,
         technicians: technicianBreakdown,
+        svgContent,
+        mesasCycle,
+        sessionDuration,
+        washingDuration,
       });
     } catch (error) {
       console.log(error);
@@ -487,11 +575,29 @@ router.get(
         .from(mesas)
         .where(eq(mesas.plantId, result.session.plantId));
 
-      // Mesas lavadas en esta sesión
+      // Mesas lavadas en esta sesión (session-scoped status)
       const mesasLavadas = await db
         .select()
         .from(mesaWashes)
         .where(eq(mesaWashes.sessionId, sessionId as string));
+
+      // Get mesa codes for washed mesas
+      const washedMesaIds = mesasLavadas.map((mw) => mw.mesaId);
+      const washedMesas =
+        washedMesaIds.length > 0
+          ? await db
+              .select({ id: mesas.id, code: mesas.code })
+              .from(mesas)
+              .where(inArray(mesas.id, washedMesaIds))
+          : [];
+
+      const mesasSession = mesasLavadas.map((mw) => {
+        const mesa = washedMesas.find((m) => m.id === mw.mesaId);
+        return {
+          code: mesa?.code ?? "",
+          status: mw.finishedAt ? "done" : "in_progress",
+        };
+      });
 
       // Total de mesas de la planta
       const [{ total }] = await db
@@ -577,7 +683,7 @@ router.get(
         totalMesas: total,
         porcentaje: Math.round((mesasLavadas.length / total) * 100),
         duracionTotal: duracionTotal as number,
-        mesasPlanta,
+        mesasSession,
         cycleProgress,
       });
     } catch (error) {

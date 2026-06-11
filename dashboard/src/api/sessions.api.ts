@@ -28,9 +28,8 @@ export interface SessionSummary {
   totalMesas: number;
   porcentaje: number;
   duracionTotal: number;
-  mesasPlanta: {
+  mesasSession: {
     code: string;
-    label: string;
     status: string;
   }[];
   cycleProgress: {
@@ -127,6 +126,13 @@ export interface CycleSummary {
     mesasWashed: number;
     sessionCount: number;
   }[];
+  svgContent: string | null;
+  mesasCycle: {
+    code: string;
+    status: string;
+  }[];
+  sessionDuration: number;
+  washingDuration: number;
 }
 
 export const fetchCycleHistory = async (

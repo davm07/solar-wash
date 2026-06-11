@@ -42,7 +42,7 @@ export default function SessionSummaryPage() {
   };
 
   const mesaStatuses = Object.fromEntries(
-    data.mesasPlanta.map((m) => [m.code, m.status]),
+    data.mesasSession.map((m) => [m.code, m.status]),
   );
 
   return (
@@ -52,7 +52,7 @@ export default function SessionSummaryPage() {
           onClick={() => navigate(-1)}
           className="mb-4 text-sm bg-olive-800 p-3 rounded-2xl text-olive-50 hover:bg-olive-400 transition-all"
         >
-          ← Back to Plants
+          ← Volver a la vista de ciclos
         </button>
         {/* HEADER */}
         <div className="mb-6">
@@ -168,11 +168,23 @@ export default function SessionSummaryPage() {
           </div>
         )}
       </div>
-      <div className="flex-1 px-12 flex items-center justify-center lg:max-h-[80vh] mb-3 lg:mb-0">
+      <div className="flex-1 px-12 flex flex-col items-center justify-center lg:max-h-[80vh] mb-3 lg:mb-0">
         <PlantMapViewer
           mesaStatuses={mesaStatuses}
           svg={data.session.plant.svgContent}
         />
+        <p className="text-xs text-gray-400 mt-2 text-center">
+          Solo las mesas terminadas o en progreso son mostradas en esta sección.{" "}
+          {data.cycleProgress && (
+            <span
+              className="underline cursor-pointer hover:text-gray-600"
+              onClick={() => navigate(`/cycles/${data.cycleProgress!.cycleId}`)}
+            >
+              Para observar un resumen total regresa a la página de resumen de
+              ciclos.
+            </span>
+          )}
+        </p>
       </div>
     </div>
   );

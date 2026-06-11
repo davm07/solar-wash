@@ -152,7 +152,7 @@ export default function SessionScreen({ navigation }: any) {
         return;
       }
 
-      // 2. decidir acción según estado
+      // decidir acción según estado
       if (mesa.status === "pending") {
         const res = await api.post("/mesas/scan/start", {
           code: data,
@@ -161,25 +161,35 @@ export default function SessionScreen({ navigation }: any) {
 
         setCurrentMesa(res.data.mesa.code);
         updateMesa(res.data.mesa);
-      }
-
-      if (mesa.status === "in_progress") {
+      } else if (mesa.status === "in_progress") {
         const res = await api.post("/mesas/scan/finish", {
           code: data,
+          sessionId: session?.id,
         });
 
         updateMesa(res.data.mesa);
         setCurrentMesa(null);
+      } else if (mesa.status === "done") {
+        Alert.alert("Mesa ya lavada", "Esta mesa ya fue lavada en esta sesión");
+        setScanning(false);
+        return;
       }
 
       setMode("view");
     } catch (error: any) {
-      Alert.alert(
-        "Error",
+      const code = error?.response?.data?.code;
+      const message =
         error?.response?.data?.message ||
-          error.message ||
-          "No se pudo procesar el QR",
-      );
+        error.message ||
+        "No se pudo procesar el QR";
+
+      if (code === "ALREADY_WASHED_IN_SESSION") {
+        Alert.alert("Mesa ya lavada", message);
+      } else if (code === "IN_PROGRESS_BY_OTHER") {
+        Alert.alert("Mesa en uso", message);
+      } else {
+        Alert.alert("Error", message);
+      }
     } finally {
       setScanning(false);
     }

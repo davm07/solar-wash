@@ -29,6 +29,8 @@ interface CycleSummary {
     mesasWashed: number;
     sessionCount: number;
   }[];
+  sessionDuration: number;
+  washingDuration: number;
 }
 
 export default function CycleDetailScreen({ route, navigation }: any) {
@@ -70,6 +72,14 @@ export default function CycleDetailScreen({ route, navigation }: any) {
     return `${h}h ${m}m`;
   };
 
+  const formatDurationFromSeconds = (seconds: number) => {
+    const totalSeconds = Math.round(seconds);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -105,7 +115,9 @@ export default function CycleDetailScreen({ route, navigation }: any) {
             {getCycleDate(summary.cycle.startedAt, summary.cycle.finishedAt)}
           </Text>
           <Text style={styles.meta}>
-            Duración: {formatDuration(summary.cycle.startedAt, summary.cycle.finishedAt)}
+            {summary.cycle.finishedAt
+              ? `Duración: ${formatDuration(summary.cycle.startedAt, summary.cycle.finishedAt)}`
+              : "La duración total será mostrada cuando todas las mesas estén completamente lavadas"}
           </Text>
         </View>
 
@@ -123,6 +135,24 @@ export default function CycleDetailScreen({ route, navigation }: any) {
           <Text style={styles.meta}>
             {summary.mesasDone} / {summary.totalMesas} mesas lavadas
           </Text>
+        </View>
+
+        {/* DURATIONS */}
+        <View style={styles.durationRow}>
+          <View style={[styles.card, { flex: 1, marginRight: 6 }]}>
+            <Text style={styles.label}>Duración total</Text>
+            <Text style={styles.durationValue}>
+              {formatDurationFromSeconds(summary.sessionDuration)}
+            </Text>
+            <Text style={styles.durationMeta}>Tiempo de sesión</Text>
+          </View>
+          <View style={[styles.card, { flex: 1, marginLeft: 6 }]}>
+            <Text style={styles.label}>Tiempo de lavado</Text>
+            <Text style={styles.durationValue}>
+              {formatDurationFromSeconds(summary.washingDuration)}
+            </Text>
+            <Text style={styles.durationMeta}>Tiempo activo</Text>
+          </View>
         </View>
 
         {/* TECHNICIANS */}
@@ -214,6 +244,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   progressFill: { height: "100%", backgroundColor: "#1D9E75", borderRadius: 4 },
+
+  durationRow: {
+    flexDirection: "row",
+    marginTop: 12,
+  },
+  durationValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1D9E75",
+    marginTop: 4,
+  },
+  durationMeta: {
+    fontSize: 11,
+    color: "#888",
+    marginTop: 2,
+  },
 
   techRow: {
     flexDirection: "row",

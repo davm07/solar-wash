@@ -30,7 +30,7 @@ export default function DashboardLayout() {
             onClick={handleLogout}
             className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm text-white"
           >
-            Logout
+            Cerrar sesión
           </button>
         </div>
       </header>

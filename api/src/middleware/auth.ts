@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "../db/index";
-import { plants, washSessions } from "../db/schema";
+import { plants, washSessions, cleaningCycles } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 export interface AuthRequest extends Request {
@@ -108,6 +108,41 @@ export async function requireSessionAccess(
 
     if (!plant || plant.clientId !== req.user!.id) {
       return res.status(403).json({ error: "No tienes acceso a esta sesión" });
+    }
+
+    next();
+  } catch (error) {
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+}
+
+export async function requireCycleAccess(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.user!.role === "technician" || req.user!.role === "admin") {
+    return next();
+  }
+
+  try {
+    const cycleId = req.params.cycleId;
+    const [cycle] = await db
+      .select()
+      .from(cleaningCycles)
+      .where(eq(cleaningCycles.id, cycleId as string));
+
+    if (!cycle) {
+      return res.status(404).json({ error: "Ciclo no encontrado" });
+    }
+
+    const [plant] = await db
+      .select()
+      .from(plants)
+      .where(eq(plants.id, cycle.plantId));
+
+    if (!plant || plant.clientId !== req.user!.id) {
+      return res.status(403).json({ error: "No tienes acceso a este ciclo" });
     }
 
     next();
