@@ -59,7 +59,10 @@ function formatDateShort(d: Date): string {
 
 // ── Cycle Completion Email ──────────────────────────────────────────────────
 
-export async function sendCycleCompletionEmail(cycleId: string, overrideEmail?: string): Promise<void> {
+export async function sendCycleCompletionEmail(
+  cycleId: string,
+  overrideEmail?: string,
+): Promise<void> {
   const client = getClient();
   if (!client) return;
 
@@ -132,10 +135,14 @@ export async function sendCycleCompletionEmail(cycleId: string, overrideEmail?: 
       techMap.set(session.technicianId, existing);
     }
 
-    // 5. Water consumption
+    // 5. Water consumption + total mesas
     let totalWater = 0;
+    let totalMesas = 0;
     for (const s of sessions) {
       totalWater += s.waterConsumption || 0;
+    }
+    for (const t of techMap.values()) {
+      totalMesas += t.mesasWashed;
     }
 
     // 6. Session duration
@@ -169,9 +176,9 @@ export async function sendCycleCompletionEmail(cycleId: string, overrideEmail?: 
           <h1 style="color:#1D9E75;margin:0 0 8px;">Ciclo de lavado completado</h1>
           <p style="color:#888;margin:0 0 24px;">${plant.name}</p>
 
-          <div style="display:flex;gap:16px;margin-bottom:24px;">
+          <div style="display:flex;gap:16px;margin-bottom:24px;flex-direction:row;">
             <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:16px;text-align:center;">
-              <div style="font-size:24px;font-weight:bold;color:#1D9E75;">4,436</div>
+              <div style="font-size:24px;font-weight:bold;color:#1D9E75;">${totalMesas.toLocaleString()}</div>
               <div style="color:#666;font-size:13px;">Mesas lavadas</div>
             </div>
             <div style="flex:1;background:#eff6ff;border-radius:8px;padding:16px;text-align:center;">
@@ -197,7 +204,9 @@ export async function sendCycleCompletionEmail(cycleId: string, overrideEmail?: 
             <div style="font-size:15px;">${formatDuration(sessionDuration)}</div>
           </div>
 
-          ${techRows ? `
+          ${
+            techRows
+              ? `
           <h2 style="font-size:16px;margin:24px 0 12px;">Técnicos participantes</h2>
           <table style="width:100%;border-collapse:collapse;font-size:14px;">
             <thead>
@@ -208,7 +217,9 @@ export async function sendCycleCompletionEmail(cycleId: string, overrideEmail?: 
               </tr>
             </thead>
             <tbody>${techRows}</tbody>
-          </table>` : ""}
+          </table>`
+              : ""
+          }
 
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
           <p style="color:#aaa;font-size:12px;text-align:center;">
@@ -248,7 +259,9 @@ interface WeeklyPlantSummary {
   technicianNames: string[];
 }
 
-export async function sendWeeklySummaryEmails(overrideEmail?: string): Promise<void> {
+export async function sendWeeklySummaryEmails(
+  overrideEmail?: string,
+): Promise<void> {
   const client = getClient();
   if (!client) return;
 
@@ -346,10 +359,7 @@ export async function sendWeeklySummaryEmails(overrideEmail?: string): Promise<v
     }
 
     // 6. Find all admins
-    const admins = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, "admin"));
+    const admins = await db.select().from(users).where(eq(users.role, "admin"));
 
     // 7. Find all technicians who worked this week
     const workingTechs = await db
@@ -440,7 +450,9 @@ export async function sendWeeklySummaryEmails(overrideEmail?: string): Promise<v
             </div>
           </div>
 
-          ${plantRows ? `
+          ${
+            plantRows
+              ? `
           <h2 style="font-size:16px;margin:24px 0 12px;">Detalle por planta</h2>
           <table style="width:100%;border-collapse:collapse;font-size:14px;">
             <thead>
@@ -453,7 +465,9 @@ export async function sendWeeklySummaryEmails(overrideEmail?: string): Promise<v
               </tr>
             </thead>
             <tbody>${plantRows}</tbody>
-          </table>` : ""}
+          </table>`
+              : ""
+          }
 
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
           <p style="color:#aaa;font-size:12px;text-align:center;">
