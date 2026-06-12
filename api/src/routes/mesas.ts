@@ -46,6 +46,14 @@ router.post(
         return res.status(404).json({ message: "Mesa no encontrada" });
       }
 
+      // Check if mesa is already done in the current cycle
+      if (mesa.status === "done") {
+        return res.status(400).json({
+          message: "Esta mesa ya fue lavada en el ciclo actual",
+          code: "ALREADY_DONE_IN_CYCLE",
+        });
+      }
+
       // Check if this mesa already has a wash record in THIS session
       const [existingInSession] = await db
         .select()

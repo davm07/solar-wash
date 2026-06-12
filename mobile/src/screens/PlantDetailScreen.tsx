@@ -257,9 +257,12 @@ export default function PlantDetailScreen({ navigation }: any) {
                     navigation.navigate("SessionSummary", { sessionId: ses.id })
                   }
                 >
-                  <Text style={s.sessionDate}>
-                    {getSessionDate(ses.startedAt, ses.finishedAt)}
-                  </Text>
+                  <View>
+                    <Text style={s.sessionDate}>
+                      {getSessionDate(ses.startedAt, ses.finishedAt)}
+                    </Text>
+                    <Text style={s.sessionStatus}>Ir a resumen →</Text>
+                  </View>
                   <Text style={s.sessionStatus}>
                     {ses.finishedAt ? "Finalizada" : "En curso"}
                   </Text>
