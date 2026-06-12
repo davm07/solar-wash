@@ -181,7 +181,7 @@ export default function SessionSummaryPage() {
           mesaStatuses={mesaStatuses}
           svg={data.session.plant.svgContent}
         />
-        <p className="text-xs text-gray-400 mt-2 text-center">
+        <p className="text-xs text-gray-500 mt-2 text-center">
           Solo las mesas terminadas o en progreso son mostradas en esta sección.{" "}
           {data.cycleProgress && (
             <span

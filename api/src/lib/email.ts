@@ -221,6 +221,12 @@ export async function sendCycleCompletionEmail(
               : ""
           }
 
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin:24px 0;">
+            <p style="margin:0;font-size:14px;color:#0369a1;">
+              <strong>Nota:</strong> Al finalizar el ciclo, todas las mesas se reinician automáticamente a estado "pendiente". El próximo ciclo comenzará cuando el técnico inicie una nueva sesión. No se requiere acción manual.
+            </p>
+          </div>
+
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
           <p style="color:#aaa;font-size:12px;text-align:center;">
             Solar Wash — Sistema de gestión de lavado de paneles solares

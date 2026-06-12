@@ -64,6 +64,16 @@ export default function CycleDetailPage() {
           </p>
         </div>
 
+        {/* INFO BANNER */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <p className="text-sm text-blue-800">
+            <strong>Nota:</strong> Los ciclos se finalizan automáticamente cuando
+            todas las mesas están lavadas. Las mesas se reinician a estado
+            "pendiente" y el próximo ciclo comenzará cuando el técnico inicie una
+            nueva sesión.
+          </p>
+        </div>
+
         {/* INFO GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* DATES */}

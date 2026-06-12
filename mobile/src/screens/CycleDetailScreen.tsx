@@ -109,6 +109,15 @@ export default function CycleDetailScreen({ route, navigation }: any) {
           {summary.cycle.finishedAt ? "Finalizado" : "En progreso"}
         </Text>
 
+        {/* INFO NOTE */}
+        <View style={styles.infoNote}>
+          <Text style={styles.infoNoteText}>
+            Los ciclos se finalizan automáticamente cuando todas las mesas están
+            lavadas. Las mesas se reinician a estado "pendiente" y el próximo
+            ciclo comenzará cuando el técnico inicie una nueva sesión.
+          </Text>
+        </View>
+
         {/* DATES & DURATION */}
         <View style={styles.card}>
           <Text style={styles.label}>Período</Text>
@@ -234,6 +243,20 @@ const styles = StyleSheet.create({
   back: { fontSize: 14, color: "#1D9E75", marginBottom: 12, marginTop: 8 },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 4 },
   subtitle: { fontSize: 14, color: "#888", marginBottom: 8 },
+
+  infoNote: {
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  infoNoteText: {
+    fontSize: 13,
+    color: "#1e40af",
+    lineHeight: 18,
+  },
 
   card: {
     backgroundColor: "#fff",

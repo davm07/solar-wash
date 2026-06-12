@@ -40,7 +40,7 @@ export default function PlantCard({ plant }: { plant: Plant }) {
         <h3 className="text-lg font-semibold">{plant.name}</h3>
         <p className="text-sm text-gray-500">{plant.location}</p>
         {plant.client && (
-          <p className="text-xs text-gray-400">Cliente: {plant.client}</p>
+          <p className="text-xs text-gray-500">Cliente: {plant.client}</p>
         )}
       </div>
 
@@ -88,7 +88,7 @@ export default function PlantCard({ plant }: { plant: Plant }) {
                 <p className="text-gray-700">
                   {getCycleDate(cycle.startedAt, cycle.finishedAt)}
                 </p>
-                <p className="text-gray-400">
+                <p className="text-gray-500">
                   {cycle.sessionCount} sesiones · {cycle.technicianCount}{" "}
                   técnicos
                 </p>
