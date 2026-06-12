@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAppStore } from "../store/useAppStore";
 import api from "../utils/api";
 import { parseSvg, ParsedSvg } from "../utils/parseSvg";
@@ -28,6 +28,7 @@ export default function SessionScreen({ navigation }: any) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [showWaterModal, setShowWaterModal] = useState(false);
   const [waterConsumption, setWaterConsumption] = useState("");
+  const [selectedMesaCode, setSelectedMesaCode] = useState<string | null>(null);
 
   // 🧠 ZUSTAND STATE
   const plant = useAppStore((s) => s.plant);
@@ -44,11 +45,19 @@ export default function SessionScreen({ navigation }: any) {
   const isActive = !!session?.id;
   const hasMesaInProgress = !!currentMesaId;
   const currentMesa = mesas.find((m) => m.code === currentMesaId);
-  const mesaStatus = () => {
-    if (currentMesa?.status === "pending") return "Pendiente";
-    if (currentMesa?.status === "in_progress") return "En progreso";
-    if (currentMesa?.status === "done") return "Finalizada";
+  const selectedMesa = mesas.find(
+    (m) =>
+      m.code === selectedMesaCode ||
+      m.code === selectedMesaCode?.replace(/^mesa_/, ""),
+  );
+  const mesaStatusLabel = (m?: typeof currentMesa) => {
+    if (!m) return "Desconocido";
+    if (m.status === "pending") return "Pendiente";
+    if (m.status === "in_progress") return "En progreso";
+    if (m.status === "done") return "Finalizada";
+    return "Desconocido";
   };
+  const mesaStatus = () => mesaStatusLabel(currentMesa);
 
   useEffect(() => {
     fetchMesas();
@@ -162,6 +171,53 @@ export default function SessionScreen({ navigation }: any) {
     }
   };
 
+  // =========================
+  // TAP-ON-PANEL HANDLERS
+  // =========================
+  const handlePanelTap = useCallback((code: string) => {
+    setSelectedMesaCode(code);
+  }, []);
+
+  const handleStartWash = async () => {
+    if (!selectedMesaCode) return;
+    try {
+      const res = await api.post("/mesas/scan/start", {
+        code: selectedMesaCode,
+        sessionId: session?.id,
+      });
+      setCurrentMesa(res.data.mesa.code);
+      updateMesa(res.data.mesa);
+      setSelectedMesaCode(null);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo iniciar el lavado",
+      );
+    }
+  };
+
+  const handleFinishWash = async () => {
+    if (!selectedMesaCode) return;
+    try {
+      const res = await api.post("/mesas/scan/finish", {
+        code: selectedMesaCode,
+        sessionId: session?.id,
+      });
+      updateMesa(res.data.mesa);
+      setCurrentMesa(null);
+      setSelectedMesaCode(null);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error.message ||
+          "No se pudo finalizar el lavado",
+      );
+    }
+  };
+
   const handleScan = async ({ data }: { data: string }) => {
     if (scanning) return;
     setScanning(true);
@@ -236,45 +292,45 @@ export default function SessionScreen({ navigation }: any) {
   );
 
   // =========================
-  // SCAN SCREEN
+  // SCAN SCREEN (commented out — tap-on-panel replaces QR scanning)
   // =========================
-  if (mode === "scanning") {
-    if (!permission?.granted) {
-      return (
-        <SafeAreaView style={s.centered}>
-          <Text>Se necesita permiso de cámara</Text>
-          <TouchableOpacity onPress={requestPermission}>
-            <Text>Dar permiso</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      );
-    }
-
-    return (
-      <View style={{ flex: 1 }}>
-        <CameraView
-          style={{ flex: 1 }}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={handleScan}
-        />
-
-        <View style={s.scanOverlay}>
-          <Text style={s.scanText}>Escanea QR de la mesa</Text>
-
-          <TouchableOpacity
-            style={s.btn}
-            onPress={() => {
-              setMode("view");
-              setScanning(false);
-            }}
-          >
-            <Text style={s.btnText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  // if (mode === "scanning") {
+  //   if (!permission?.granted) {
+  //     return (
+  //       <SafeAreaView style={s.centered}>
+  //         <Text>Se necesita permiso de cámara</Text>
+  //         <TouchableOpacity onPress={requestPermission}>
+  //           <Text>Dar permiso</Text>
+  //         </TouchableOpacity>
+  //       </SafeAreaView>
+  //     );
+  //   }
+  //
+  //   return (
+  //     <View style={{ flex: 1 }}>
+  //       <CameraView
+  //         style={{ flex: 1 }}
+  //         facing="back"
+  //         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+  //         onBarcodeScanned={handleScan}
+  //       />
+  //
+  //       <View style={s.scanOverlay}>
+  //         <Text style={s.scanText}>Escanea QR de la mesa</Text>
+  //
+  //         <TouchableOpacity
+  //           style={s.btn}
+  //           onPress={() => {
+  //             setMode("view");
+  //             setScanning(false);
+  //           }}
+  //         >
+  //           <Text style={s.btnText}>Cancelar</Text>
+  //         </TouchableOpacity>
+  //       </View>
+  //     </View>
+  //   );
+  // }
 
   // =========================
   // MAIN VIEW
@@ -298,6 +354,7 @@ export default function SessionScreen({ navigation }: any) {
             width={containerSize.width}
             height={containerSize.height}
             mesasState={mesasState}
+            onPanelTap={handlePanelTap}
           />
         ) : (
           <View style={s.centered}>
@@ -319,7 +376,7 @@ export default function SessionScreen({ navigation }: any) {
             <Text style={s.statValue}>
               {currentMesaId
                 ? `${currentMesa?.label} (${mesaStatus()})`
-                : "Escanea una mesa"}
+                : "Selecciona una mesa del plano"}
             </Text>
           </View>
 
@@ -345,13 +402,14 @@ export default function SessionScreen({ navigation }: any) {
             onPress={startSession}
           >
             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "bold" }}>
-              Iniciar jornada
+              Iniciar sesión
             </Text>
           </TouchableOpacity>
         )}
 
         {isActive && (
           <View style={s.btnRow}>
+            {/* QR scan button (commented — tap-on-panel replaces it)
             <TouchableOpacity
               style={[s.btn, s.scanBtn]}
               onPress={() => setMode("scanning")}
@@ -360,6 +418,7 @@ export default function SessionScreen({ navigation }: any) {
                 📷 {currentMesaId ? "Finalizar mesa" : "Escanear mesa"}
               </Text>
             </TouchableOpacity>
+            */}
 
             <TouchableOpacity
               style={[
@@ -372,11 +431,103 @@ export default function SessionScreen({ navigation }: any) {
               onPress={finishSession}
               disabled={hasMesaInProgress}
             >
-              <Text style={s.btnText}>⏹ Finalizar sesión</Text>
+              <Text style={s.btnText}>Finalizar sesión</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
+
+      {/* MESA ACTION MODAL */}
+      <Modal
+        visible={selectedMesaCode !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedMesaCode(null)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>
+              {selectedMesa?.label || selectedMesaCode}
+            </Text>
+            <Text style={s.modalSubtitle}>Código: {selectedMesaCode}</Text>
+            <View style={s.mesaStatusRow}>
+              <View
+                style={[
+                  s.statusDot,
+                  {
+                    backgroundColor:
+                      selectedMesa?.status === "pending"
+                        ? "#bdc3c7"
+                        : selectedMesa?.status === "in_progress"
+                          ? "#f1c40f"
+                          : "#2ecc71",
+                  },
+                ]}
+              />
+              <Text style={s.mesaStatusText}>
+                Estado: {mesaStatusLabel(selectedMesa)}
+              </Text>
+            </View>
+
+            {selectedMesa?.status === "pending" && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#1D9E75",
+                  paddingVertical: 14,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+                onPress={handleStartWash}
+              >
+                <Text
+                  style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 16 }}
+                >
+                  Iniciar lavado
+                </Text>
+              </TouchableOpacity>
+            )}
+            {selectedMesa?.status === "in_progress" && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#2980b9",
+                  paddingVertical: 14,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+                onPress={handleFinishWash}
+              >
+                <Text
+                  style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 16 }}
+                >
+                  Finalizar lavado
+                </Text>
+              </TouchableOpacity>
+            )}
+            {selectedMesa?.status === "done" && (
+              <Text style={s.doneMessage}>Esta mesa ya fue lavada</Text>
+            )}
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#f3f4f6",
+                paddingVertical: 14,
+                borderRadius: 10,
+                alignItems: "center",
+                marginTop: 8,
+              }}
+              onPress={() => setSelectedMesaCode(null)}
+            >
+              <Text
+                style={{ color: "#374151", fontWeight: "600", fontSize: 16 }}
+              >
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* WATER CONSUMPTION MODAL */}
       <Modal
@@ -510,11 +661,12 @@ const s = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#111827",
     marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: "#888",
+    color: "#6b7280",
     marginBottom: 16,
   },
   modalInput: {
@@ -548,5 +700,38 @@ const s = StyleSheet.create({
   modalBtnConfirmText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  mesaStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  mesaStatusText: {
+    fontSize: 16,
+    color: "#374151",
+  },
+  startWashBtn: {
+    backgroundColor: "#1D9E75",
+  },
+  finishWashBtn: {
+    backgroundColor: "#2980b9",
+  },
+  modalBtnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+    fontSize: 14,
+  },
+  doneMessage: {
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: 14,
+    marginTop: 8,
   },
 });

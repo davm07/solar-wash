@@ -8,6 +8,7 @@ import {
   useDerivedValue,
   withSpring,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,6 +22,7 @@ interface SkiaPlantMapProps {
   width: number;
   height: number;
   mesasState: Record<string, string>;
+  onPanelTap?: (panelCode: string) => void;
 }
 
 const MAX_ZOOM = 50;
@@ -31,6 +33,7 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
   width,
   height,
   mesasState,
+  onPanelTap,
 }: SkiaPlantMapProps) {
   const { borderD, rects } = parsedSvg;
 
@@ -128,6 +131,25 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
     [width, height, baseScaleLog, bounds, svgCenterX, svgCenterY],
   );
 
+  const handleTapJS = useCallback(
+    (svgX: number, svgY: number) => {
+      // Iterate in reverse so visually top panels win
+      for (let i = rects.length - 1; i >= 0; i--) {
+        const r = rects[i];
+        if (
+          svgX >= r.x &&
+          svgX <= r.x + r.w &&
+          svgY >= r.y &&
+          svgY <= r.y + r.h
+        ) {
+          onPanelTap?.(r.id);
+          return;
+        }
+      }
+    },
+    [rects, onPanelTap],
+  );
+
   // Pinch to zoom — zooms toward the finger focal point in SVG space
   const pinchGesture = Gesture.Pinch()
     .onUpdate((event) => {
@@ -223,10 +245,23 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
       savedViewCenterY.value = svgCenterY;
     });
 
+  // Single-tap to select a panel — hit-tests in SVG space via runOnJS
+  const singleTapGesture = Gesture.Tap()
+    .numberOfTaps(1)
+    .onStart((event) => {
+      "worklet";
+      const logScale = baseScaleLog * zoom.value;
+      const sx =
+        viewCenterX.value + (event.x - width / 2) / logScale;
+      const sy =
+        viewCenterY.value + (event.y - height / 2) / logScale;
+      runOnJS(handleTapJS)(sx, sy);
+    });
+
   const composedGesture = Gesture.Simultaneous(
     pinchGesture,
     panGesture,
-    doubleTapGesture,
+    Gesture.Exclusive(doubleTapGesture, singleTapGesture),
   );
 
   // Matrix normalizes SVG coords into the hi-res canvas and applies

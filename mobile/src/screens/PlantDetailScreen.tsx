@@ -309,7 +309,7 @@ export default function PlantDetailScreen({ navigation }: any) {
 
         {/* START SESSION BUTTON */}
         <TouchableOpacity style={s.startBtn} onPress={handleStartSession}>
-          <Text style={s.startBtnText}>Iniciar jornada</Text>
+          <Text style={s.startBtnText}>Iniciar nueva sesión</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
