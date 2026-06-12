@@ -413,7 +413,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    height: 300,
+    height: 400,
     overflow: "hidden",
     display: "flex",
     justifyContent: "center",
