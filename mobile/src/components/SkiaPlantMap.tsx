@@ -3,10 +3,9 @@ import { ParsedSvg } from "../utils/parseSvg";
 import { useCallback, useMemo, memo } from "react";
 import { PixelRatio, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
+import {
   useSharedValue,
   useDerivedValue,
-  useAnimatedStyle,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -24,7 +23,7 @@ interface SkiaPlantMapProps {
   mesasState: Record<string, string>;
 }
 
-const MAX_ZOOM = 5;
+const MAX_ZOOM = 50;
 const MIN_ZOOM = 0.5;
 
 export const SkiaPlantMap = memo(function SkiaPlantMap({
@@ -36,10 +35,7 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
   const { borderD, rects } = parsedSvg;
 
   // Render the canvas at the device's physical pixel ratio so it stays
-  // sharp when the user zooms in. Skia works in logical points by default,
-  // so we scale the canvas up by the pixel ratio and then shrink the View
-  // back down with a transform — giving us a hi-res surface at no extra
-  // visual cost at scale=1.
+  // sharp when the user zooms in.
   const pixelRatio = PixelRatio.get();
   const factor = pixelRatio;
   const canvasWidth = width * factor;
@@ -92,102 +88,126 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
     canvasWidth / bounds.width,
     canvasHeight / bounds.height,
   );
-  const baseOffsetX = (canvasWidth - bounds.width * baseScale) / 2;
-  const baseOffsetY = (canvasHeight - bounds.height * baseScale) / 2;
+  // Logical-scale equivalent for gesture calculations (view-space)
+  const baseScaleLog = Math.min(width / bounds.width, height / bounds.height);
 
   // ========================
   // GESTURES
   // ========================
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
+  const svgCenterX = bounds.x + bounds.width / 2;
+  const svgCenterY = bounds.y + bounds.height / 2;
+
+  // zoom/pan are applied inside the Skia rendering matrix, not as native
+  // view transforms — this keeps the canvas at a fixed physical size and
+  // prevents crashes at high zoom.
+  const zoom = useSharedValue(1);
+  const savedZoom = useSharedValue(1);
+  const viewCenterX = useSharedValue(svgCenterX);
+  const viewCenterY = useSharedValue(svgCenterY);
+  const savedViewCenterX = useSharedValue(svgCenterX);
+  const savedViewCenterY = useSharedValue(svgCenterY);
 
   const getBoundaries = useCallback(
-    (currentScale: number) => {
+    (currentZoom: number) => {
       "worklet";
-      // Boundaries are in logical points (width/height), not physical pixels
-      const contentW = width * currentScale;
-      const contentH = height * currentScale;
-      const maxTx = Math.max(0, (contentW - width) / 2);
-      const maxTy = Math.max(0, (contentH - height) / 2);
-      return { maxTx, maxTy };
+      const halfVisibleW = width / (2 * baseScaleLog * currentZoom);
+      const halfVisibleH = height / (2 * baseScaleLog * currentZoom);
+      const minX = bounds.x + halfVisibleW;
+      const maxX = bounds.x + bounds.width - halfVisibleW;
+      const minY = bounds.y + halfVisibleH;
+      const maxY = bounds.y + bounds.height - halfVisibleH;
+      // When the viewport is larger than the SVG (zoom <= 1), boundaries
+      // cross; fall back to SVG center — panning is disabled at that zoom.
+      return {
+        minX: minX < maxX ? minX : svgCenterX,
+        maxX: minX < maxX ? maxX : svgCenterX,
+        minY: minY < maxY ? minY : svgCenterY,
+        maxY: minY < maxY ? maxY : svgCenterY,
+      };
     },
-    [width, height],
+    [width, height, baseScaleLog, bounds, svgCenterX, svgCenterY],
   );
 
-  // Pinch to zoom
+  // Pinch to zoom — zooms toward the finger focal point in SVG space
   const pinchGesture = Gesture.Pinch()
     .onUpdate((event) => {
-      const newScale = Math.max(
+      const newZoom = Math.max(
         MIN_ZOOM,
-        Math.min(savedScale.value * event.scale, MAX_ZOOM),
+        Math.min(savedZoom.value * event.scale, MAX_ZOOM),
       );
-      const ratio = newScale / scale.value;
+      const logScaleOld = baseScaleLog * zoom.value;
+      const logScaleNew = baseScaleLog * newZoom;
 
-      // Adjust pan to zoom from focal point
-      translateX.value =
-        event.focalX - ratio * (event.focalX - translateX.value);
-      translateY.value =
-        event.focalY - ratio * (event.focalY - translateY.value);
+      // Convert the focal view-point to SVG coordinates
+      const focalSVGX =
+        viewCenterX.value + (event.focalX - width / 2) / logScaleOld;
+      const focalSVGY =
+        viewCenterY.value + (event.focalY - height / 2) / logScaleOld;
 
-      scale.value = newScale;
+      // Adjust viewCenter so the same SVG point stays under the fingers
+      viewCenterX.value = focalSVGX - (event.focalX - width / 2) / logScaleNew;
+      viewCenterY.value = focalSVGY - (event.focalY - height / 2) / logScaleNew;
+      zoom.value = newZoom;
 
-      // Clamp pan to new boundaries
-      const { maxTx, maxTy } = getBoundaries(scale.value);
-      translateX.value = Math.max(-maxTx, Math.min(translateX.value, maxTx));
-      translateY.value = Math.max(-maxTy, Math.min(translateY.value, maxTy));
+      // Clamp viewCenter to bounds (hard clamp for pinch, rubber-band for pan)
+      const { minX, maxX, minY, maxY } = getBoundaries(zoom.value);
+      viewCenterX.value = Math.max(minX, Math.min(viewCenterX.value, maxX));
+      viewCenterY.value = Math.max(minY, Math.min(viewCenterY.value, maxY));
     })
     .onEnd(() => {
-      savedScale.value = scale.value;
+      savedZoom.value = zoom.value;
+      savedViewCenterX.value = viewCenterX.value;
+      savedViewCenterY.value = viewCenterY.value;
     });
 
-  // Pan (only when zoomed in)
+  // Pan — move viewCenter inversely (activates when zoomed in)
   const panGesture = Gesture.Pan()
+    .onStart(() => {
+      savedViewCenterX.value = viewCenterX.value;
+      savedViewCenterY.value = viewCenterY.value;
+    })
     .onUpdate((event) => {
-      if (scale.value > 1) {
-        const { maxTx, maxTy } = getBoundaries(scale.value);
-        const nextX = savedTranslateX.value + event.translationX;
-        const nextY = savedTranslateY.value + event.translationY;
+      if (zoom.value > 1) {
+        const scaleInSVG = baseScaleLog * zoom.value;
+        const nextX = savedViewCenterX.value - event.translationX / scaleInSVG;
+        const nextY = savedViewCenterY.value - event.translationY / scaleInSVG;
+        const { minX, maxX, minY, maxY } = getBoundaries(zoom.value);
 
-        if (Math.abs(nextX) > maxTx) {
-          translateX.value =
-            nextX > 0
-              ? maxTx + (nextX - maxTx) * 0.2
-              : -maxTx + (nextX + maxTx) * 0.2;
+        // Rubber-band X
+        if (nextX < minX) {
+          viewCenterX.value = minX - (minX - nextX) * 0.2;
+        } else if (nextX > maxX) {
+          viewCenterX.value = maxX + (nextX - maxX) * 0.2;
         } else {
-          translateX.value = nextX;
+          viewCenterX.value = nextX;
         }
-
-        if (Math.abs(nextY) > maxTy) {
-          translateY.value =
-            nextY > 0
-              ? maxTy + (nextY - maxTy) * 0.2
-              : -maxTy + (nextY + maxTy) * 0.2;
+        // Rubber-band Y
+        if (nextY < minY) {
+          viewCenterY.value = minY - (minY - nextY) * 0.2;
+        } else if (nextY > maxY) {
+          viewCenterY.value = maxY + (nextY - maxY) * 0.2;
         } else {
-          translateY.value = nextY;
+          viewCenterY.value = nextY;
         }
       }
     })
     .onEnd(() => {
-      const { maxTx, maxTy } = getBoundaries(scale.value);
-      translateX.value = withSpring(
-        Math.max(-maxTx, Math.min(translateX.value, maxTx)),
+      const { minX, maxX, minY, maxY } = getBoundaries(zoom.value);
+      viewCenterX.value = withSpring(
+        Math.max(minX, Math.min(viewCenterX.value, maxX)),
         { damping: 15 },
       );
-      translateY.value = withSpring(
-        Math.max(-maxTy, Math.min(translateY.value, maxTy)),
+      viewCenterY.value = withSpring(
+        Math.max(minY, Math.min(viewCenterY.value, maxY)),
         { damping: 15 },
       );
-      savedTranslateX.value = Math.max(
-        -maxTx,
-        Math.min(translateX.value, maxTx),
+      savedViewCenterX.value = Math.max(
+        minX,
+        Math.min(viewCenterX.value, maxX),
       );
-      savedTranslateY.value = Math.max(
-        -maxTy,
-        Math.min(translateY.value, maxTy),
+      savedViewCenterY.value = Math.max(
+        minY,
+        Math.min(viewCenterY.value, maxY),
       );
     });
 
@@ -195,12 +215,12 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onStart(() => {
-      scale.value = withTiming(1);
-      savedScale.value = 1;
-      translateX.value = withTiming(0);
-      translateY.value = withTiming(0);
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
+      zoom.value = withTiming(1);
+      savedZoom.value = 1;
+      viewCenterX.value = withTiming(svgCenterX);
+      viewCenterY.value = withTiming(svgCenterY);
+      savedViewCenterX.value = svgCenterX;
+      savedViewCenterY.value = svgCenterY;
     });
 
   const composedGesture = Gesture.Simultaneous(
@@ -209,23 +229,15 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
     doubleTapGesture,
   );
 
-  // Pan + zoom applied natively on the logical-sized View (no Skia clipping)
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
-
-  // Matrix only normalizes SVG coords into the hi-res canvas (no pan/zoom)
+  // Matrix normalizes SVG coords into the hi-res canvas and applies
+  // user zoom/pan — all inside Skia, no native view transforms.
   const matrix = useDerivedValue(() => {
     const m = Skia.Matrix();
-    m.translate(baseOffsetX, baseOffsetY);
-    m.translate(-bounds.x * baseScale, -bounds.y * baseScale);
-    m.scale(baseScale, baseScale);
+    m.translate(canvasWidth / 2, canvasHeight / 2);
+    m.scale(baseScale * zoom.value, baseScale * zoom.value);
+    m.translate(-viewCenterX.value, -viewCenterY.value);
     return m;
-  }, [baseOffsetX, baseOffsetY, bounds, baseScale]);
+  }, [baseScale, canvasWidth, canvasHeight]);
 
   // ========================
   // RENDER
@@ -234,45 +246,42 @@ export const SkiaPlantMap = memo(function SkiaPlantMap({
     <GestureDetector gesture={composedGesture}>
       {/* Fixed container that defines the gesture/clipping area */}
       <View style={{ width, height, overflow: "hidden" }}>
-        {/* Moves and scales natively — no Skia clipping */}
-        <Animated.View style={[{ width, height }, animatedStyle]}>
-          {/*
-           * Canvas is physically canvasWidth x canvasHeight (hi-res) but
-           * scaled back down to logical width x height via transformOrigin
-           * "top left" + scale(1/pixelRatio). At scale=1 it looks identical
-           * to a normal canvas; when the user zooms, the extra pixels Skia
-           * already rendered are revealed — crisp at every zoom level.
-           */}
-          <Canvas
-            style={{
-              width: canvasWidth,
-              height: canvasHeight,
-              transform: [{ scale: 1 / factor }],
-              transformOrigin: "top left",
-            }}
-          >
-            <Group matrix={matrix}>
-              {path && (
-                <Path
-                  path={path}
-                  color="#3941a0"
-                  strokeWidth={0.5}
-                  style="stroke"
-                />
-              )}
-              {rects.map((rect) => (
-                <Rect
-                  key={rect.id}
-                  x={rect.x}
-                  y={rect.y}
-                  width={rect.w}
-                  height={rect.h}
-                  color={STATUS_COLORS[mesasState?.[rect.id] ?? "pending"]}
-                />
-              ))}
-            </Group>
-          </Canvas>
-        </Animated.View>
+        {/*
+         * Canvas is physically canvasWidth x canvasHeight (hi-res) but
+         * scaled back down to logical width x height via transformOrigin
+         * "top left" + scale(1/pixelRatio). All zoom/pan is handled inside
+         * the Skia matrix — the view layer stays at fixed size, preventing
+         * crashes at high zoom.
+         */}
+        <Canvas
+          style={{
+            width: canvasWidth,
+            height: canvasHeight,
+            transform: [{ scale: 1 / factor }],
+            transformOrigin: "top left",
+          }}
+        >
+          <Group matrix={matrix}>
+            {path && (
+              <Path
+                path={path}
+                color="#3941a0"
+                strokeWidth={0.5}
+                style="stroke"
+              />
+            )}
+            {rects.map((rect) => (
+              <Rect
+                key={rect.id}
+                x={rect.x}
+                y={rect.y}
+                width={rect.w}
+                height={rect.h}
+                color={STATUS_COLORS[mesasState?.[rect.id] ?? "pending"]}
+              />
+            ))}
+          </Group>
+        </Canvas>
       </View>
     </GestureDetector>
   );
